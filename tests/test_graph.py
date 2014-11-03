@@ -26,11 +26,11 @@ def create_samples():
     Sub.objects.create(a='E', b=True)
     SubSub.objects.create(a='F', b=False, c='x')
 
-    o2o_1 = OneToOne.objects.create(d=1.1)
-    OneToOne.objects.create(d=2.2, r=real_1)
-    o2o_3 = OneToOne.objects.create(d=3.3, r=real_2, s=o2o_1)
-    OneToOne.objects.create(d=4.4, r=real_3, s=o2o_3)
-    o2o_5 = OneToOne.objects.create(d=5.5)
+    o2o_1 = OneToOne.objects.create(d='1.1')
+    OneToOne.objects.create(d='2.2', r=real_1)
+    o2o_3 = OneToOne.objects.create(d='3.3', r=real_2, s=o2o_1)
+    OneToOne.objects.create(d='4.4', r=real_3, s=o2o_3)
+    o2o_5 = OneToOne.objects.create(d='5.5')
     o2o_5.s = o2o_5
     o2o_5.save()
 
@@ -172,12 +172,12 @@ def test_command_dump_load():
 
     delete_all()
     create_samples()
-    queryset = OneToOne.objects.filter(d=5.5)
+    queryset = OneToOne.objects.filter(d="5.5")
     expected_lists = get_values_lists(queryset)
 
     _, filename = tempfile.mkstemp()
     call_command('model_graph', filename,
-                 querysets=['testapp-onetoone-filter(d=5.5)'])
+                 querysets=['testapp-onetoone-filter(d="5.5")'])
 
     delete_all()
     call_command('model_graph', filename)
