@@ -1,0 +1,7 @@
+include LICENSE
+include README.md
+exclude __pycache__
+recursive-include nicedjango *.py
+recursive-exclude nicedjango *.pyc
+recursive-include tests *
+recursive-exclude tests *.pyc
