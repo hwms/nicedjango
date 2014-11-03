@@ -3,6 +3,9 @@ nicedjango
 
 Nice django tools
 
+[![Build Status](https://travis-ci.org/katakumpo/nicedjango.svg)](https://travis-ci.org/katakumpo/nicedjango)
+
+
 ModelGraph
 ==========
 Selective dumping and loading of only the needed model data for all objects and
