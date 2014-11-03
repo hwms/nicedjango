@@ -1,19 +1,17 @@
 import logging
-from collections import defaultdict, OrderedDict
-from functools import total_ordering
+from collections import defaultdict
 
 from django.core import serializers
 from django.db.models.fields.related import RelatedField
 from django.db.models.related import RelatedObject
 
-from nicedjango.utils import chunked
+from nicedjango.utils import chunked, OrderedDict
 
 log = logging.getLogger(__name__)
 
 __all__ = ['Node']
 
 
-@total_ordering
 class Node(object):
     def __init__(self, graph, model, label):
         self.graph = graph
@@ -62,6 +60,18 @@ class Node(object):
 
     def __lt__(self, other):
         return self.label < other.label
+
+    def __le__(self, other):
+        return self.__lt__(other) or self.__eq__(other)
+
+    def __gt__(self, other):
+        return not (self.__lt__(other) or self.__eq__(other))
+
+    def __ge__(self, other):
+        return not self.__lt__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __repr__(self):
         return r'<%s<%s>>' % (self.__class__.__name__, self.label)

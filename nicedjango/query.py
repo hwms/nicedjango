@@ -1,4 +1,7 @@
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
+
+from nicedjango.utils import OrderedDict
+
 
 __all__ = ['Query']
 

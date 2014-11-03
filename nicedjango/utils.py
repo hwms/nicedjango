@@ -2,7 +2,12 @@ try:
     from itertools import izip_longest
 except ImportError:
     from itertools import zip_longest as izip_longest
-
+try:
+    from collections import OrderedDict
+except ImportError:
+    # python 2.6 or earlier, use backport
+    from ordereddict import OrderedDict
+assert OrderedDict
 
 __all__ = ['chunked', 'model_label']
 
