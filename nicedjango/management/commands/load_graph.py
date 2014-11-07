@@ -1,7 +1,4 @@
 """
-TODO: update later
-ModelGraph
-==========
 Selective dumping and loading of only the needed model data for all objects and
 their related objects of one or more querysets.
 
@@ -13,13 +10,6 @@ This is done by
 
 For now the serialization is handled by django's yaml decoder to enable queries
 in chunks for big data.
-
-Examples:
-
-    # dump all objects from myapp.models.MyModel.objects.filter(..)
-    ./manage.py model_graph dump.yaml -q 'myapp-mymodel-filter(..)'
-    # load dump.yaml
-    ./manage.py model_graph dump.yaml
 """
 import logging
 

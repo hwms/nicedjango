@@ -22,7 +22,25 @@ in chunks for big data.
 
 Examples:
 
+    # show model graph parts that would be dumped and those which not:
+    ./manage.py dump_graph -s -q 'a'
+       a1.a:
+         ignored subs:
+           a1.a.b > a1.b
+
+    # add relations to the to be dumped graph
+    ./manage.py dump_graph -s -q 'a' -e 'a.b'
+        a1.a:
+          subs:
+            a1.a.b > a1.b
+        a1.b:
+          parents:
+            a1.b.a_ptr > a1.a
+          ignored subs:
+            a1.b.c > a1.c
+
     # dump all objects from myapp.models.MyModel.objects.filter(..)
-    ./manage.py model_graph dump.yaml -q 'myapp-mymodel-filter(..)'
+    ./manage.py dump_graph -d dump.yaml -q 'myapp.mymodel.filter(..)'
+
     # load dump.yaml
-    ./manage.py model_graph dump.yaml
+    ./manage.py load_graph dump.yaml

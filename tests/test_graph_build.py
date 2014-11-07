@@ -9,6 +9,19 @@ from tests.a3 import models as a3
 from tests.a4.models import Article, Book, BookReview, Piece
 
 TEST_DATA = [
+    ('a', None, dedent("""\
+       a1.a:
+         ignored subs:
+           a1.a.b > a1.b""")),
+    ('a', 'a.b', dedent("""\
+        a1.a:
+          subs:
+            a1.a.b > a1.b
+        a1.b:
+          parents:
+            a1.b.a_ptr > a1.a
+          ignored subs:
+            a1.b.c > a1.c""")),
     ((A, B, C), None, dedent("""\
        a1.a:
          ignored subs:
