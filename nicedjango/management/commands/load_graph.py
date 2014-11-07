@@ -1,4 +1,5 @@
 """
+TODO: update later
 ModelGraph
 ==========
 Selective dumping and loading of only the needed model data for all objects and
@@ -21,34 +22,18 @@ Examples:
     ./manage.py model_graph dump.yaml
 """
 import logging
-import sys
-from optparse import make_option
 
 from django.core.management.base import BaseCommand
-
 from nicedjango.graph import ModelGraph
 
-console = logging.StreamHandler(sys.stdout)
-console.setLevel(logging.INFO)
-log = logging.getLogger(__name__)
-log.addHandler(console)
-log.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 
 class Command(BaseCommand):
-    option_list = BaseCommand.option_list + (
-        make_option('-q', '--querysets', action='append',
-                    help='Queryset\'s in the form of:\n\t'
-                         '<appname>.<modelname>.<filter calls>.'),
-    )
     help = __doc__
-    args = 'dumpfile'
+    ARGS = 'loadfile'
 
-    def handle(self, dumpfile, **options):
+    def handle(self, loadfile, **options):
         graph = ModelGraph()
-        if not options['querysets']:
-            with open(dumpfile) as f:
-                graph.load_objects(f)
-        else:
-            with open(dumpfile, 'w+') as f:
-                graph.dump_objects(f, *options['querysets'])
+        with open(loadfile) as infile:
+            graph.load_objects(infile)

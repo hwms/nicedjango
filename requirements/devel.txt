@@ -1,0 +1,12 @@
+-r testing.txt
+ipdb==0.8
+ipython==2.3.0
+autopep8==1.0.4
+isort==3.9.0
+pyflakes==0.8.1
+bumpversion==0.5.0
+wheel==0.24.0
+tox==1.8.1
+
+PyYAML==3.11
+pysqlite==2.6.3

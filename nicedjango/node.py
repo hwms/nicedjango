@@ -1,56 +1,42 @@
 import logging
-from collections import defaultdict
+from collections import namedtuple
+from operator import attrgetter
 
 from django.core import serializers
-from django.db.models.fields.related import RelatedField
-from django.db.models.related import RelatedObject
-
-from nicedjango.utils import chunked, OrderedDict
+from nicedjango.utils import chunked, get_own_related_infos
 
 log = logging.getLogger(__name__)
 
 __all__ = ['Node']
 
 
+Connection = namedtuple('Connection', 'field node rel_field')
+
+
 class Node(object):
+
     def __init__(self, graph, model, label):
         self.graph = graph
         self.model = model
         self.meta = model._meta
+        self.pk_field = self.meta.pk.name
         self.label = label
 
-        self.deps = OrderedDict()
-        self.related = defaultdict(set)
+        self.pars = set()
+        # target's models where the node.model is inherited from
+        self.subs = set()
+        # target's models where the node.model is base from (pk wise)
+        self.deps = set()
+        # targets that are dependencies for the node
+        self.rels = set()
+        # related nodes which are to be parsed
+        self.ignored_subs = set()
+        # not to be parsed sub nodes stored for graph.show
+        self.ignored_rels = set()
+        # not to be parsed related nodes stored for graph.show
 
         self.pks = set()
-
-    def init(self):
-        for field in self.iter_own_related_fields():
-            other = field.rel.to
-            node = self.graph.get_node(other)
-            self.deps[field.name] = node
-
-        for rel in self.iter_own_related_objects():
-            other = rel.model
-            node = self.graph.get_node(other)
-            self.related[node].add(rel.field.name)
-
-    def iter_own_related(self):
-        for name in self.meta.get_all_field_names():
-            rel, model, _, _ = self.meta.get_field_by_name(name)
-            if not model:
-                yield rel
-
-    def iter_own_related_fields(self):
-        for field in self.iter_own_related():
-            if isinstance(field, RelatedField) and issubclass(self.model,
-                                                              field.rel.to):
-                yield field
-
-    def iter_own_related_objects(self):
-        for rel in self.iter_own_related():
-            if isinstance(rel, RelatedObject):
-                yield rel
+        # pks discovered for this model
 
     def __hash__(self):
         return hash(self.label)
@@ -76,32 +62,71 @@ class Node(object):
     def __repr__(self):
         return r'<%s<%s>>' % (self.__class__.__name__, self.label)
 
-    def add_pks(self, pks, create_own_query=True):
-        for node in [self] + list(self.deps.values()):
+    def as_lines(self):
+        lines = []
+        for title, conns in (('parents', self.pars), ('depends', self.deps),
+                             ('subs', self.subs), ('relates', self.rels),
+                             ('ignored subs', self.ignored_subs),
+                             ('ignored rels', self.ignored_rels)):
+            sub_lines = []
+            for conn in conns:
+                sub_lines.append('    %s.%s > %s' % (self.label, conn.field,
+                                                     conn.node.label))
+            if sub_lines:
+                lines.append('  %s:' % title)
+                lines.extend(sorted(sub_lines))
+        if lines:
+            return ['%s:' % self.label] + lines
+        return lines
+
+    def init(self):
+        related_infos = get_own_related_infos(self.model)
+        for field, rel_model, rel_field, is_pk, is_rel in related_infos:
+            add_node = True
+            if is_rel:
+                if (self, field) in self.graph.extras:
+                    conns = self.subs if is_pk else self.rels
+                else:
+                    add_node = False
+                    conns = self.ignored_subs if is_pk else self.ignored_rels
+            else:
+                conns = self.pars if is_pk else self.deps
+
+            node = self.graph.get_node(rel_model)
+            conns.add(Connection(field, node, rel_field))
+            if add_node and node != self:
+                self.graph.add_node(node)
+
+    def add_pks(self, pks, no_new_query=False):
+        pks = set(pks) - set([None])
+        nodes = [self] + list(map(attrgetter('node'), self.pars))
+        for node in nodes:
             new_pks = pks - node.pks
             if new_pks:
                 node.pks.update(new_pks)
-                if create_own_query:
-                    self.graph.add_pk_query(node, pks=new_pks)
-                for related, names in node.related.items():
-                    for name in names:
-                        self.graph.add_pk_query(related, fieldname=name,
-                                                pks=new_pks)
+                if not no_new_query:
+                    self.graph.add_query(node, pks=new_pks)
+                for conn in node.subs:
+                    self.graph.add_query(conn.node, pk_field=conn.rel_field,
+                                         pks=new_pks)
+                if self.rels and node == self:
+                    for conn in node.rels:
+                        self.graph.add_query(conn.node,
+                                             pk_field=conn.rel_field,
+                                             pks=new_pks)
 
     def dump_objects(self, outfile):
         pk_count = len(self.pks)
         chunks_count = int(pk_count / 10000) + 1
         for chunk_index, pks in enumerate(chunked(self.pks, 10000)):
-            log.info('dumping chunk %d/%d of %s' % (chunk_index + 1,
-                                                    chunks_count,
-                                                    self.label))
+            log.info('dumping chunk %d/%d (%d) of %s'
+                     % (chunk_index + 1, chunks_count, len(pks), self.label))
             queryset = self.model.objects.filter(pk__in=pks)
-
             # TODO: write own json/p serializer able to dump and load in chunks
             # with one file, for now only yaml works with appending.
             s = serializers.serialize('yaml', queryset, indent=True,
-                                      use_natural_keys=True)
-            outfile.write(s)
+                                      use_natural_keys=False)
+            outfile.write(s.encode('utf-8'))
 
     def dump_object(self):
         pass

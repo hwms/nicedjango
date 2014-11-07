@@ -33,6 +33,30 @@ def pytest_configure():
 
             'nicedjango',
             'tests',
-            'tests.testapp',
+            'tests.a1',
+            'tests.a2',
+            'tests.a3',
+            'tests.a4',
         ),
+        LOGGING={
+            'version': 1,
+            'disable_existing_loggers': False,
+            'handlers': {
+                'console': {
+                    'level': 'DEBUG',
+                    'class': 'logging.StreamHandler',
+                },
+            },
+            'loggers': {
+                '*': {
+                    'handlers': ['console'],
+                    'level': 'DEBUG',
+                },
+                'django.db.backends': {
+                    'level': 'DEBUG',
+                    'handlers': ['console'],
+                },
+            }
+        }
+
     )

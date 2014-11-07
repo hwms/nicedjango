@@ -4,6 +4,7 @@ Based entirely on Django's own ``setup.py``.
 Copied mostly from django extensions.
 
 """
+__VERSION__ = '1.1.0'
 import os
 import sys
 from distutils.command.install import INSTALL_SCHEMES
@@ -84,7 +85,7 @@ for dirpath, dirnames, filenames in os.walk(extensions_dir):
 
 setup(
     name='nicedjango',
-    version='1.0',
+    version=__VERSION__,
     description="Extensions for Django",
     long_description=(open('README.md').read()),
     author='Mathias Seidler',
