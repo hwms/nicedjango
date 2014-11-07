@@ -3,8 +3,16 @@ nicedjango
 
 Nice django tools
 
-[![Build Status](https://travis-ci.org/katakumpo/nicedjango.svg)](https://travis-ci.org/katakumpo/nicedjango)
-
+[![Build Status](https://travis-ci.org/katakumpo/nicedjango.svg?style=flat)](https://travis-ci.org/katakumpo/nicedjango)
+[![Downloads](https://pypip.in/download/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Latest Version](https://pypip.in/version/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Supported Python versions](https://pypip.in/py_versions/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Supported Python implementations](https://pypip.in/implementation/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Development Status](https://pypip.in/status/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Wheel Status](https://pypip.in/wheel/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Egg Status](https://pypip.in/egg/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![Download format](https://pypip.in/format/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
+[![License](https://pypip.in/license/nicedjango/badge.svg?style=flat)](https://pypi.python.org/pypi/nicedjango/)
 
 ModelGraph
 ==========
