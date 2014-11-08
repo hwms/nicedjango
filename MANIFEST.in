@@ -1,5 +1,6 @@
 include LICENSE
-include README.md
+include README.rst
+include .coveragerc
 exclude __pycache__
 recursive-include nicedjango *.py
 recursive-exclude nicedjango *.pyc

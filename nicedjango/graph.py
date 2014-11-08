@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 __all__ = ['ModelGraph']
 
 
+
 class ModelGraph(object):
 
     def __init__(self, queries=None, extras=None):
@@ -70,15 +71,15 @@ class ModelGraph(object):
         return '\n'.join(lines)
 
     def show(self):
-        print(self.as_string())
+        print(self.as_string())  # pragma: no cover
 
     def reset_sorted_notes(self):
         self.sorted_nodes = []
-        nodes_to_order = set(self.nodes.values())
+        to_order = set(self.nodes.values())
         found_one = True
-        while nodes_to_order and found_one:
+        while to_order and found_one:
             found_one = False
-            for node in sorted(nodes_to_order):
+            for node in sorted(to_order):
                 can_be_added = True
                 for conn in node.deps:
                     if (conn.node != node
@@ -87,12 +88,13 @@ class ModelGraph(object):
                         break
                 if can_be_added:
                     self.sorted_nodes.append(node)
-                    nodes_to_order.discard(node)
+                    to_order.discard(node)
                     found_one = True
 
-        if nodes_to_order:
-            raise ValueError('Failed to order circular nodes: %s'
-                             % nodes_to_order)
+        if to_order:
+            # should never happen, just to be safe
+            raise ValueError('Failed to order circular'  # pragma: no cover
+                             ' nodes: %s' % to_order)  # pragma: no cover
 
     def update_pks(self):
         while self._new_queries:

@@ -1,7 +1,7 @@
 import pytest
-
 from nicedjango.utils import (divide_model_def, get_own_related_infos,
                               model_label, queryset_from_def)
+
 from tests.a1.models import A, B, C
 from tests.a2.models import (Abstract, Foreign, ManyToMany, OneToOne, Proxy,
                              Real, Sub, SubSub)

@@ -1,7 +1,7 @@
 import pytest
-
 from nicedjango._compat import BytesIO
 from nicedjango.graph import ModelGraph
+
 from tests.a2.models import (Foreign, ManyToMany, OneToOne, Proxy, Real, Sub,
                              SubSub)
 from tests.utils import delete_all, get_all_values

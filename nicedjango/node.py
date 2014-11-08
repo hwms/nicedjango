@@ -127,6 +127,3 @@ class Node(object):
             s = serializers.serialize('yaml', queryset, indent=True,
                                       use_natural_keys=False)
             outfile.write(s.encode('utf-8'))
-
-    def dump_object(self):
-        pass

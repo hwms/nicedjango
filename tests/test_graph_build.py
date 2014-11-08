@@ -1,8 +1,8 @@
 from textwrap import dedent
 
 import pytest
-
 from nicedjango.graph import ModelGraph
+
 from tests.a1.models import A, B, C
 from tests.a2.models import Real
 from tests.a3 import models as a3
