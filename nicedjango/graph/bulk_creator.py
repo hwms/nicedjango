@@ -26,8 +26,9 @@ class BulkValuesListCreator(object):
         self.pk_index = fields.index(model._meta.pk)
 
     def update_or_create(self, values_list):
-        if 'mysql' in self.connection.client.executable_name.lower():
-            self._mysql_replace_into(values_list)
+        conn_name = self.connection.client.executable_name.lower()
+        if 'mysql' in conn_name:
+            self._replace_into(values_list)
         else:
             old_pks = self.get_existing_pks(values_list)
             to_update, to_create = self._split_by_pks(values_list, old_pks)
@@ -49,10 +50,11 @@ class BulkValuesListCreator(object):
     def _db_prep(self, values_list):
         prepared_list = []
         for values in values_list:
-            prepared = []
+            prepared_values = []
             for field, value in zip(self.fields, values):
-                prepared.append(field.get_db_prep_save(value, self.connection))
-            prepared_list.append(prepared)
+                prepared_value = field.get_db_prep_save(value, self.connection)
+                prepared_values.append(prepared_value)
+            prepared_list.append(prepared_values)
         return prepared_list
 
     def get_existing_pks(self, values_list):
@@ -65,11 +67,7 @@ class BulkValuesListCreator(object):
     def _update_many(self, values_list):
         if not values_list:
             return
-        value_strings = list(map(lambda c: '%s=%%s' % c, self.columns))
-        where_string = value_strings.pop(self.pk_index)
-        value_string = ', '.join(value_strings)
-        query_string = 'UPDATE %s SET %s WHERE %s' % (self.table, value_string,
-                                                      where_string)
+        query_string = self.get_update_querystring()
         prep_list = self._db_prep(values_list)
         parameters = list(self._iter_with_pk_last(prep_list))
         self.connection.cursor().executemany(query_string, parameters)
@@ -83,20 +81,27 @@ class BulkValuesListCreator(object):
         values.append(values.pop(self.pk_index))
         return values
 
+    def get_update_querystring(self):
+        values = list(map(lambda c: '%s=%%s' % c, self.columns))
+        where = values.pop(self.pk_index)
+        values = ', '.join(values)
+        return 'UPDATE %s SET %s WHERE %s' % (self.table, values, where)
+
+    def get_into_querystring(self, command):
+        columns = ', '.join(self.columns)
+        values = ', '.join(('%s',) * len(self.columns))
+        return 'INSERT INTO %s (%s) VALUES (%s)' % (self.table, columns,
+                                                    values)
+
     def _insert_into(self, values_list):
         self._sql_into('INSERT', values_list)
 
-    def _mysql_replace_into(self, values_list):
+    def _replace_into(self, values_list):
         self._sql_into('REPLACE', values_list)
 
-    def _sql_into(self, sql_command, values_list):
+    def _sql_into(self, command, values_list):
         if not values_list:
             return
-        values_string = '(%s)' % ', '.join(('%s',) * len(self.fields))
-        values_strings = (values_string,) * len(values_list)
-        query_string = ('%s INTO %s (%s) VALUES %s'
-                        % (sql_command, self.table, ', '.join(self.columns),
-                           ', '.join(values_strings)))
+        query_string = self.get_into_querystring(command)
         prep_list = self._db_prep(values_list)
-        self.connection.cursor().execute(query_string,
-                                         list(chain.from_iterable(prep_list)))
+        self.connection.cursor().executemany(query_string, prep_list)
