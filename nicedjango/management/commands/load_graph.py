@@ -14,6 +14,7 @@ in chunks for big data.
 import logging
 
 from django.core.management.base import BaseCommand
+
 from nicedjango.graph import ModelGraph
 
 logging.basicConfig(level=logging.INFO)

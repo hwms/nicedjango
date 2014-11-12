@@ -7,17 +7,12 @@ else:
 
 if sys.version_info[0] == 2:
     from itertools import izip_longest
-    try:
-        from cStringIO import StringIO as BytesIO
-    except ImportError:  # pragma: no cover
-        from StringIO import StringIO as BytesIO  # pragma: no cover @UnusedImport
     basestring = basestring  # @ReservedAssignment
     unicode = unicode  # @ReservedAssignment
     bytes = str  # @ReservedAssignment
 elif sys.version_info[0] == 3:
     from itertools import zip_longest  # @UnresolvedImport
     izip_longest = zip_longest
-    from io import BytesIO  # @UnusedImport @Reimport
     basestring = str  # @ReservedAssignment
     unicode = str  # @ReservedAssignment
     bytes = bytes  # @ReservedAssignment

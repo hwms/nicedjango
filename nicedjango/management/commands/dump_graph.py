@@ -15,6 +15,7 @@ import logging
 from optparse import make_option
 
 from django.core.management.base import BaseCommand
+
 from nicedjango.graph import ModelGraph
 
 logging.basicConfig(level=logging.INFO)

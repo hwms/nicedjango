@@ -4,28 +4,35 @@ import logging
 from operator import attrgetter
 
 from django.core import serializers
+from django.db.models.loading import get_app, get_models
 from django.db.models.query import QuerySet
+
 from nicedjango._compat import basestring
-from nicedjango.node import Node
-from nicedjango.query import Query
-from nicedjango.utils import (coerce_tuple, get_related_object_from_def,
-                              model_label, queryset_from_def, RememberingSet)
+from nicedjango.graph.node import Node
+from nicedjango.graph.query import Query
+from nicedjango.utils import (coerce_tuple, divide_model_def, model_label,
+                              queryset_from_def, RememberingSet)
 
 log = logging.getLogger(__name__)
 
 __all__ = ['ModelGraph']
 
 
-
 class ModelGraph(object):
 
-    def __init__(self, queries=None, extras=None):
+    def __init__(self, queries=None, extras=None, app=None):
         self.nodes = {}
         self.extras = set()
         self.sorted_nodes = []
         self._new_nodes = RememberingSet()
         self._new_queries = RememberingSet()
         self.initial_querystrings = []
+        if app:
+            if queries or extras:
+                raise ValueError('queries or extras can\'t be defined together'
+                                 'with app.')
+            app = get_app(app)
+            queries = get_models(app, include_auto_created=True)
         self.add_extras(*coerce_tuple(extras, basestring, QuerySet))
         self.add_queries(*coerce_tuple(queries, basestring, QuerySet))
 
@@ -55,16 +62,20 @@ class ModelGraph(object):
 
         query = Query(node, queryset, **kwargs)
         if query not in self._new_queries:
-            log.warning('%s %s %s' % (node.label, query.pk_field, query.pks))
-        self._new_queries.add(query)
+            log.debug(
+                '%s %s %s' %
+                (node.label, query.pk_field, len(
+                    query.pks)))
+            self._new_queries.add(query)
 
     def add_queries(self, *args):
         for arg in args:
             self.add_query(arg)
 
     def as_string(self):
+        self.reset_sorted_notes()
         lines = []
-        for node in sorted(self.nodes.values()):
+        for node in self.sorted_nodes:
             nl = node.as_lines()
             if nl:
                 lines.extend(nl)
@@ -81,7 +92,7 @@ class ModelGraph(object):
             found_one = False
             for node in sorted(to_order):
                 can_be_added = True
-                for conn in node.deps:
+                for conn in node.deps | node.pars:
                     if (conn.node != node
                             and conn.node not in self.sorted_nodes):
                         can_be_added = False
@@ -112,10 +123,29 @@ class ModelGraph(object):
 
     def add_extras(self, *conn_defs):
         for conn_def in conn_defs:
-            robj = get_related_object_from_def(conn_def)
-            node = self.get_node(robj.parent_model)
-            self.extras.add((node, robj.var_name))
+            model, name = divide_model_def(conn_def)
+            node = self.get_node(model)
+            related_infos = node.related_infos.get(name)
+            if not related_infos:
+                raise ValueError('Failed to get field by %s' % conn_def)
+            self.extras.add((node, name))
 
-    def load_objects(self, infile):
-        for o in serializers.deserialize('yaml', infile):
-            o.save()
+    def load_objects(self, stream_or_string):
+        node = None
+        names = None
+        values_list = []
+        for obj in serializers.deserialize('compact_yaml', stream_or_string):
+            actual_node = self.get_node(obj.model)
+            if actual_node != node:
+                if values_list:
+                    node.update_or_create_objects(names, values_list)
+                    values_list = []
+                node = actual_node
+                names = obj.names
+
+            values_list.append(obj.values)
+            if len(values_list) >= 100:
+                node.update_or_create_objects(names, values_list)
+                values_list = []
+        if values_list:
+            node.update_or_create_objects(names, values_list)

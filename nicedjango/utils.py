@@ -6,6 +6,7 @@ from django.db.models.fields.related import RelatedField
 from django.db.models.loading import get_app, get_apps, get_model, get_models
 from django.db.models.query import QuerySet
 from django.db.models.related import RelatedObject
+
 from nicedjango._compat import basestring, izip_longest, OrderedDict
 
 __all__ = ['chunked', 'model_label']
@@ -87,7 +88,7 @@ def coerce_tuple(arg, *excludes):
 def get_modelname_appnames_dict():
     dct = defaultdict(set)
     for app in get_apps():
-        for model in get_models(app):
+        for model in get_models(app, include_auto_created=True):
             dct[model.__name__.lower()].add(model._meta.app_label)
     return dct
 
@@ -171,39 +172,65 @@ def queryset_from_def(queryset_def):
     return eval('model._default_manager.%s' % rest)
 
 
-def get_related_object_from_def(rel_def):
-    model, field = divide_model_def(rel_def)
-    fields = model._meta.get_all_field_names()
-    if field not in fields:
-        raise ValueError('field %s not in %s at %s' % (field, fields, model))
-    robj, _, _, _ = model._meta.get_field_by_name(field)
-    if not isinstance(robj, RelatedObject):
-        raise ValueError('field %s is no related object.' % robj)
-    return robj
-
-
-def get_own_related_infos(m):
+def get_own_related_infos(model):
     """
-    Return all own fields as tuples:
-       <field name>, <model related to>, <field name on related model>
-       <relfield is primary key> <is relation>
+    Return all infos from own related fields without dupes as ordered dict:
+       {fieldname: tuple(<related model>, <name on related model>,
+                         <is dependency> <relfield is primary key>), ..}
     """
-    per_robj = OrderedDict()
-    # filter the shortest fieldname per related object (dj17 defines two)
-    for fieldname in m._meta.get_all_field_names():
-        robj, model, _, _ = m._meta.get_field_by_name(fieldname)
-
-        if model:
+    infos = OrderedDict()
+    for name, field, direct, m2m, is_rel in iter_own_fields_with_name(model):
+        if not is_rel:
             continue
+        is_dep = direct and not m2m
+        is_rel_pk = field.primary_key
+        rm, rfn = _get_related_field_model_and_name(name, field, direct, m2m)
+        infos[name] = (rm, rfn, is_dep, is_rel_pk)
+    return infos
 
-        if robj in per_robj and len(per_robj[robj][0]) < len(fieldname):
+
+def get_own_direct_fields_with_name(model):
+    infos = OrderedDict()
+    for name, field, direct, _, _ in iter_own_fields_with_name(model):
+        if direct:
+            infos[name] = field
+    return infos
+
+
+def iter_own_fields_with_name(model):
+    "Filter related fields and duplicates from dj17."
+    names = OrderedDict()
+    for name, field, model_, direct, m2m in iter_all_fields_with_name(model):
+        if model_:
             continue
+        is_rel = False
+        if isinstance(field, (RelatedField, RelatedObject)):
+            field = direct and field or field.field
+            is_rel = True
+        result = (field, direct, m2m, is_rel)
+        if result in names and len(names[result]) < len(name):
+            # filters the shortest name per robj (dj17 defines two)
+            continue
+        names[result] = name
+    for (field, direct, m2m, is_rel), name in names.items():
+        yield name, field, direct, m2m, is_rel
 
-        if isinstance(robj, RelatedField):
-            per_robj[robj] = (fieldname, robj.rel.to,
-                              robj.related_query_name(),
-                              robj.primary_key, False)
-        elif isinstance(robj, RelatedObject):
-            per_robj[robj] = (fieldname, robj.field.model, robj.field.name,
-                              robj.field.primary_key, True)
-    return list(per_robj.values())
+
+def iter_all_fields_with_name(model):
+    for name in model._meta.get_all_field_names():
+        field, model_, direct, m2m = model._meta.get_field_by_name(name)
+        yield name, field, model_, direct, m2m
+
+
+def _get_related_field_model_and_name(name, field, direct, m2m):
+    if m2m:
+        rm = field.rel.through
+        rfn = field.m2m_reverse_field_name()
+    else:
+        if direct:
+            rfn = field.rel.get_related_field().name
+            rm = field.rel.to
+        else:
+            rfn = field.name
+            rm = field.model
+    return rm, rfn

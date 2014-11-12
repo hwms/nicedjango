@@ -37,26 +37,12 @@ def pytest_configure():
             'tests.a2',
             'tests.a3',
             'tests.a4',
-        ),
-        LOGGING={
-            'version': 1,
-            'disable_existing_loggers': False,
-            'handlers': {
-                'console': {
-                    'level': 'DEBUG',
-                    'class': 'logging.StreamHandler',
-                },
-            },
-            'loggers': {
-                '*': {
-                    'handlers': ['console'],
-                    'level': 'DEBUG',
-                },
-                'django.db.backends': {
-                    'level': 'DEBUG',
-                    'handlers': ['console'],
-                },
-            }
-        }
-
+        )
     )
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    for level, color_code in ((logging.INFO, 32), (logging.WARNING, 33),
+                              (logging.ERROR, 31), (logging.DEBUG, 34),
+                              (logging.CRITICAL, 35)):
+        logging.addLevelName(level, "\033[1;%dm%s\033[1;m"
+                             % (color_code, logging.getLevelName(level)))

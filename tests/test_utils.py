@@ -1,55 +1,107 @@
+from textwrap import dedent
+
 import pytest
+
 from nicedjango.utils import (divide_model_def, get_own_related_infos,
                               model_label, queryset_from_def)
-
 from tests.a1.models import A, B, C
 from tests.a2.models import (Abstract, Foreign, ManyToMany, OneToOne, Proxy,
                              Real, Sub, SubSub)
 from tests.a3 import models as a3
 from tests.a4.models import Article, Book, BookReview, Piece
 
-INFOS = (
-    (A, [('b', B, 'a_ptr', True, True)]),
-    (B, [('a_ptr', A, 'b', True, False), ('c', C, 'b_ptr', True, True)]),
-    (C, [('b_ptr', B, 'c', True, False)]),
-
-    (Abstract, []),
-    (Real, [('foreign', Foreign, 'f', False, True),
-            ('manytomany', ManyToMany, 'm', False, True),
-            ('onetoone', OneToOne, 'r', False, True),
-            ('sub', Sub, 'real_ptr', True, True)]),
-    (Proxy, []),
-    (Sub, [('real_ptr', Real, 'sub', True, False),
-           ('subsub', SubSub, 'sub_ptr', True, True)]),
-    (SubSub, [('sub_ptr', Sub, 'subsub', True, False)]),
-    (OneToOne, [('onetoone', OneToOne, 's', False, True),
-                ('r', Real, 'onetoone', False, False),
-                ('s', OneToOne, 'onetoone', False, False)]),
-    (ManyToMany, [('m', Real, 'manytomany', False, False),
-                  ('s', ManyToMany, 's_rel_+', False, False)]),
-    (Foreign, [('f', Real, 'foreign', False, False)]),
-
-    (a3.Article, [('bookreview', a3.BookReview, 'article_ptr', False, True)]),
-    (a3.Book, [('bookreview', a3.BookReview, 'book_ptr', True, True)]),
-    (a3.BookReview, [('article_ptr', a3.Article, 'bookreview', False, False),
-                     ('book_ptr', a3.Book, 'bookreview', True, False)]),
-
-    (Piece, [('article', Article, 'piece_ptr', True, True),
-             ('book', Book, 'piece_ptr', True, True)]),
-    (Article, [('bookreview', BookReview, 'article_ptr', False, True),
-               ('piece_ptr', Piece, 'article', True, False)]),
-    (Book, [('bookreview', BookReview, 'book_ptr', True, True),
-            ('piece_ptr', Piece, 'book', True, False)]),
-    (BookReview, [('article_ptr', Article, 'bookreview', False, False),
-                  ('book_ptr', Book, 'bookreview', True, False)]),
-)
+INFOS = [
+    (A, """\
+        Field               b is par by            B.          a_ptr.
+        """),
+    (B, """\
+        Field           a_ptr is sub by            A.             id.
+        Field               c is par by            C.          b_ptr.
+        """),
+    (C, """\
+        Field           b_ptr is sub by            B.          a_ptr.
+        """),
+    (Abstract, ""),
+    (Real, """\
+        Field         foreign is rel of      Foreign.              f.
+        Field      manytomany is rel of ManyToMany_m.           real.
+        Field        onetoone is rel of     OneToOne.              r.
+        Field             sub is par by          Sub.       real_ptr.
+        """),
+    (Proxy, ""),
+    (Sub, """\
+        Field        real_ptr is sub by         Real.             id.
+        Field          subsub is par by       SubSub.        sub_ptr.
+        """),
+    (SubSub, """\
+        Field         sub_ptr is sub by          Sub.       real_ptr.
+        """),
+    (OneToOne, """\
+        Field        onetoone is rel of     OneToOne.              s.
+        Field               r is dep to         Real.             id.
+        Field               s is dep to     OneToOne.             id.
+        """),
+    (ManyToMany, """\
+        Field               m is rel of ManyToMany_m.           real.
+        Field               s is rel of ManyToMany_s.  to_manytomany.
+        """),
+    (getattr(ManyToMany.m, 'through'),
+     """\
+        Field      manytomany is dep to   ManyToMany.             id.
+        Field            real is dep to         Real.             id.
+        """),
+    (getattr(ManyToMany.s, 'through'),
+     """\
+        Field from_manytomany is dep to   ManyToMany.             id.
+        Field   to_manytomany is dep to   ManyToMany.             id.
+        """),
+    (Foreign, """\
+        Field               f is dep to         Real.             id.
+        """),
+    (a3.Article, """\
+        Field      bookreview is rel of   BookReview.    article_ptr.
+        """),
+    (a3.Book, """\
+        Field      bookreview is par by   BookReview.       book_ptr.
+        """),
+    (a3.BookReview, """\
+        Field     article_ptr is dep to      Article.     article_id.
+        Field        book_ptr is sub by         Book.        book_id.
+        """),
+    (Piece, """\
+        Field         article is par by      Article.      piece_ptr.
+        Field            book is par by         Book.      piece_ptr.
+        """),
+    (Article, """\
+        Field      bookreview is rel of   BookReview.    article_ptr.
+        Field       piece_ptr is sub by        Piece.             id.
+        """),
+    (Book, """\
+        Field      bookreview is par by   BookReview.       book_ptr.
+        Field       piece_ptr is sub by        Piece.             id.
+        """),
+    (BookReview, """\
+        Field     article_ptr is dep to      Article.      piece_ptr.
+        Field        book_ptr is sub by         Book.      piece_ptr.
+        """),
+]
 INFO_IDS = list(map(lambda i: model_label(i[0]), INFOS))
 
 
-@pytest.mark.parametrize(('model', 'infos'), INFOS, ids=INFO_IDS)
-def test_get_own_related_infos(model, infos):
-    actual = get_own_related_infos(model)
-    assert actual == infos
+@pytest.mark.parametrize(('model', 'expected'), INFOS, ids=INFO_IDS)
+def test_get_own_related_infos(model, expected):
+    infos = get_own_related_infos(model)
+    actual_infos = ''
+    for name, (rel_model, rel_field, is_dep, is_rel_pk) in infos.items():
+        rel_text = {(True, True): 'sub by',
+                    (True, False): 'dep to',
+                    (False, True): 'par by',
+                    (False, False): 'rel of'}[(is_dep, is_rel_pk)]
+        actual_infos += "Field %15s is %5s %12s.%15s.\n" % (name, rel_text,
+                                                            rel_model.__name__,
+                                                            rel_field)
+    expected = dedent(expected)
+    assert actual_infos == expected
 
 
 DIVIDE_RESULTS = (

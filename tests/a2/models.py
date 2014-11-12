@@ -12,8 +12,14 @@ class Abstract(models.Model):
 class Real(Abstract):
     pass
 
+# TODO:
+# class ProxyManager(models.Manager):
+#    def get_queryset(self):
+#        return QuerySet(self.model).filter(name__startswith='proxy')
+
 
 class Proxy(Real):
+    #    objects = ProxyManager()
 
     class Meta:
         app_label = 'a2'
