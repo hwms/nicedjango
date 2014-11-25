@@ -1,34 +1,54 @@
 import logging
-import os
+import sys
 from subprocess import call
 
 import django
 from django.conf import settings
 
-
-DBS = {'sq':{'ENGINE': 'django.db.backends.sqlite3',
-                 'NAME': ':memory:',
-                 },
-       'my':{'ENGINE': 'django.db.backends.mysql',
+DBS = {'sq': {'ENGINE': 'django.db.backends.sqlite3',
+              'NAME': ':memory:',
+              },
+       'my': {'ENGINE': 'django.db.backends.mysql',
              'NAME': 'nicedjango',
              'USER': 'root',
              'OPTIONS': {
                  'init_command': 'SET storage_engine=INNODB; SET character_set_database=UTF8;',
                  'local_infile': 1
-                 },
              },
-       'pg':{'ENGINE': 'django.db.backends.postgresql_psycopg2',
-             'USER': 'postgres',
-             'NAME': 'nicedjango',
-             'OPTIONS': {
-                'autocommit': True,
-                },
-             },
-       }
+},
+    'pg': {'ENGINE': 'django.db.backends.postgresql_psycopg2',
+           'USER': 'postgres',
+           'NAME': 'nicedjango',
+           'OPTIONS': {
+               'autocommit': True,
+           },
+           },
+}
+
+
+def pytest_addoption(parser):
+    parser.addoption("--db", action="store", choices=['sq', 'my', 'pg'], default='sq',
+                     help="run with db")
+
+
+def get_db_from_cmd_line_args():
+    # if there is another way with pytest in pytest_configure to get it, this can vanish
+    db = 'sq'
+    is_this_one = False
+    for arg in sys.argv:
+        if is_this_one:
+            if arg in ['sq', 'my', 'pg']:
+                return arg
+            return db
+        if arg.startswith('--db'):
+            if arg[5:] in ['sq', 'my', 'pg']:
+                return arg[5:]
+            is_this_one = True
+    return db
 
 
 def pytest_configure():
-    db = os.environ.get('DB', 'sq')
+    db = get_db_from_cmd_line_args()
     db_conf = DBS[db]
 
     if db == 'my':

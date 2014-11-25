@@ -4,12 +4,26 @@ install:
 script:
   - tox
 env:
-  - TOXENV=py27-dj15
-  - TOXENV=py27-dj16
-  - TOXENV=py27-dj17
-  - TOXENV=py34-dj15
-  - TOXENV=py34-dj16
-  - TOXENV=py34-dj17
+  - TOXENV=py27-dj15-sq
+  - TOXENV=py27-dj16-sq
+  - TOXENV=py27-dj17-sq
+  - TOXENV=py34-dj15-sq
+  - TOXENV=py34-dj16-sq
+  - TOXENV=py34-dj17-sq
+
+  - TOXENV=py27-dj15-my
+  - TOXENV=py27-dj16-my
+  - TOXENV=py27-dj17-my
+  - TOXENV=py34-dj15-my
+  - TOXENV=py34-dj16-my
+  - TOXENV=py34-dj17-my
+
+  - TOXENV=py27-dj15-pg
+  - TOXENV=py27-dj16-pg
+  - TOXENV=py27-dj17-pg
+  - TOXENV=py34-dj15-pg
+  - TOXENV=py34-dj16-pg
+  - TOXENV=py34-dj17-pg
+
   - TOXENV=pep8
   - TOXENV=coverage
-
