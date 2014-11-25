@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
-__VERSION__ = '1.1.0'
+__VERSION__ = '1.2.0'
 
 setup(
     name='nicedjango',
     version=__VERSION__,
-    description="Extensions for Django",
+    description="Nice extensions for django",
     long_description=(open('README.rst').read()),
     author='Mathias Seidler',
     author_email='seishin@gmail.com',
@@ -14,9 +14,8 @@ setup(
     license='MIT License',
     platforms=['any'],
     packages=find_packages(exclude=['tests*']),
-    install_requires=['Django>=1.4', 'six>=1.2'],
+    install_requires=['Django>=1.5', 'six>=1.2'],
     tests_require=['Django', 'pytest', 'pytest-django'],
-    test_suite='run_tests.main',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
@@ -27,7 +26,6 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',

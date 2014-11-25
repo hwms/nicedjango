@@ -10,16 +10,14 @@ Nice django tools
 
 _`ModelGraph`
 =============
-Selective dumping and loading of only the needed model data for all
-objects and their related objects of one or more querysets.
+Selective dumping and loading of only the needed model data for all objects and their related
+objects of one or more querysets.
 
 This is done by
- * getting a graph of all relations between models,
- * than getting all pks first chunked in steps of 10k
- * and than dump them in an order that enables correct loading.
 
-For now the serialization is handled by django's yaml decoder to enable
-queries in chunks for big data.
+    * getting a graph of all relations between models,
+    * getting all pks first in chunks,
+    * dump them in an order that enables correct loading.
 
 _`Examples`
 -----------
@@ -27,27 +25,40 @@ _`Examples`
 ::
    
    # show model graph parts that would be dumped and those which not:
-   ./manage.py dump_graph -s -q 'a'
-    a1.a:
-      ignored subs:
-        a1.a.b > a1.b
+   # example for query model a1.A with relation to child a1.B(A)
+   ./manage.py dump_graph -p -q a -r a.b
+       a1-a:
+                  a1-a.b          to child            a1-b.pk
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+        a1-b:
+                  a1-b.pk         to parent           a1-a.pk
+          excludes:
+                  a1-b.c          to child            a1-c.pk
+                  a1-b.e          to child            a1-e.pk
    
-   # add relations to the to be dumped graph
-   ./manage.py dump_graph -s -q 'a' -e 'a.b'
-     a1.a:
-       subs:
-         a1.a.b > a1.b
-     a1.b:
-       parents:
-         a1.b.a_ptr > a1.a
-       ignored subs:
-         a1.b.c > a1.c
+   # dump all objects from a1.models.A.objects.filter() with relation a.b as compact yaml:
+   ./manage.py dump_graph -f dump.yaml -s compact_yaml -q a.filter(pk__in=(1,2)) -r a.b
+       - a1-a: [pk]
+        - [1]
+        - [2]
+        - a1-b: [pk]
+        - [2]
 
-   # dump all objects from myapp.models.MyModel.objects.filter(..)
-   ./manage.py dump_graph -d dump.yaml -q 'myapp.mymodel.filter(..)'
+   # load back the dumped dump.yaml
+   ./manage.py load_graph -f dump.yaml -s compact_yaml
    
-   # load dump.yaml
-   ./manage.py load_graph dump.yaml
+   # by default serializing into compact csv files is enabled:
+   mkdir dump_folder
+   ./manage.py dump_graph -f dump_folder -q a.filter(pk__in=(1,2)) -r a.b
+   #results in two files under dump_folder:
+   # a1-a.csv:
+    a1-a:pk
+    1
+    2
+   # and a1-b.csv:
+    a1-b:pk
+    2
 
 .. |Build Status| image:: https://travis-ci.org/katakumpo/nicedjango.svg
    :target: https://travis-ci.org/katakumpo/nicedjango

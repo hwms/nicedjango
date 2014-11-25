@@ -1,48 +1,26 @@
+"""
+Multiple inheritance sample 1 from docs.
+
+Note: not more than one review per book looks like a wrong example.
+"""
 from django.db import models
 
 
-class Abstract(models.Model):
+class Article(models.Model):
+    article_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=10)
 
     class Meta:
         app_label = 'a2'
-        abstract = True
 
 
-class Real(Abstract):
-    pass
-
-# TODO:
-# class ProxyManager(models.Manager):
-#    def get_queryset(self):
-#        return QuerySet(self.model).filter(name__startswith='proxy')
-
-
-class Proxy(Real):
-    #    objects = ProxyManager()
+class Book(models.Model):
+    book_id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=10)
 
     class Meta:
         app_label = 'a2'
-        proxy = True
 
 
-class Sub(Real):
+class BookReview(Book, Article):
     pass
-
-
-class SubSub(Sub):
-    pass
-
-
-class Foreign(Abstract):
-    f = models.ForeignKey(Real, null=True)
-
-
-class OneToOne(Abstract):
-    r = models.OneToOneField(Real, null=True)
-    s = models.OneToOneField('self', null=True)
-
-
-class ManyToMany(Abstract):
-    m = models.ManyToManyField(Real)
-    s = models.ManyToManyField('self')

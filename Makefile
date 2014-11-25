@@ -17,9 +17,9 @@ coverage: dev_env
 	
 style:
 	@echo "Autopep8..."
-	autopep8 --aggressive --indent-size=4 --in-place -r nicedjango tests
+	autopep8 --aggressive --max-line-length 100 --in-place --ignore E309,E501,E128 -r nicedjango tests
 	@echo "Formatting python imports..."
-	isort -rc nicedjango/ tests/
+	isort -l 100 -rc nicedjango/ tests/
 	@echo "Pyflakes..."
 	find tests -name "[a-z]*.py" -exec pyflakes {} \;
 	find nicedjango -name "[a-z]*.py" -exec pyflakes {} \;

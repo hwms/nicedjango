@@ -1,20 +1,29 @@
 from __future__ import unicode_literals
 
 from django.conf import settings
-from django.core.serializers.base import DeserializationError
-from django.db import DEFAULT_DB_ALIAS, models
+from django.core.serializers import register_serializer
+from django.core.serializers.base import Deserializer as BaseDeserializer
+from django.db import DEFAULT_DB_ALIAS
 from django.utils.encoding import is_protected_type, smart_text
 
 from nicedjango.serializers import compact_base
 from nicedjango.serializers.compact_base import DeserializedValuesObject
+from nicedjango.utils import model_by_label, model_label
+
+__all__ = ['CompactPythonSerializer', 'CompactPythonDeserializer']
 
 
 class Serializer(compact_base.Serializer):
 
-    """
-    Serializes a QuerySet to basic Python objects.
-    """
     internal_use_only = True
+
+    def start_serialization(self):
+        self.rows = []
+
+    def handle_values(self):
+        if self.first_for_label:
+            self.rows.append({self.label: self.names})
+        self.rows.append(self._current)
 
     def handle_field_value(self, value, field):
         # Protected types (i.e., primitives like None, numbers, dates,
@@ -25,18 +34,17 @@ class Serializer(compact_base.Serializer):
         else:
             return smart_text(value)
 
-    def handle_fk_field_value(self, value, field):
-        return value
-
     def getvalue(self):
-        return [self.names] + self.rows
+        return self.rows
+
+CompactPythonSerializer = Serializer
 
 
-def Deserializer(compact_values, **options):
+class Deserializer(BaseDeserializer):
     """
-    Deserialize compact Python values back into Django ORM instances.
+    Deserialize compact Python values into DeserializedValuesObject instances.
 
-    compact_values are in the form of:
+    compact_values_iterable is in the form of:
 
         [{model_label: [pk_name, field_name_1, field_name_2,..]},
          [pk_1, value_1_1, value_2_1],
@@ -44,41 +52,37 @@ def Deserializer(compact_values, **options):
          {another_model_label: [..]},
          [..]]
     """
-    options.pop('using', DEFAULT_DB_ALIAS)
-    ignore = options.pop('ignorenonexistent', False)
-    encoding = options.get("encoding", settings.DEFAULT_CHARSET)
-    models.get_apps()
 
-    model = None
-    names = None
+    def __init__(self, compact_values_iterable, **options):
+        super(Deserializer, self).__init__(compact_values_iterable, **options)
+        self.options.pop('using', DEFAULT_DB_ALIAS)
+        self.ignore = options.pop('ignorenonexistent', False)
+        self.encoding = options.get("encoding", settings.DEFAULT_CHARSET)
 
-    for values in compact_values:
-        if isinstance(values, dict):
-            label, names = tuple(values.items())[0]
-            model = _get_model(label)
-            actual_names = model._meta.get_all_field_names()
-            if ignore:
-                names = list(filter(lambda n: n in actual_names, names))
-            continue
-        values_ = []
-        for value in values:
+        self.label = None
+        self.model = None
+        self.names = None
+        self.iterator = iter(compact_values_iterable)
+
+    def __next__(self):
+        compact_values = next(self.iterator)
+        while not compact_values or isinstance(compact_values, dict):
+            self.label, self.names = tuple(compact_values.items())[0]
+            self.model = model_by_label(self.label)._meta.concrete_model
+            self.label = model_label(self.model)
+            if self.ignore:
+                actual = self.model._meta.get_all_field_names()
+                self.names = list(filter(actual.__contains__, self.names))
+            compact_values = next(self.iterator)
+
+        values = []
+        for value in compact_values:
             if isinstance(value, str):
-                value = smart_text(value, encoding, strings_only=True)
-            values_.append(value)
+                value = smart_text(value, self.encoding, strings_only=True)
+            values.append(value)
 
-        yield DeserializedValuesObject(model, names, values_)
+        return DeserializedValuesObject(self.model, self.label, self.names,
+                                        values)
+CompactPythonDeserializer = Deserializer
 
-
-def _get_model(model_identifier):
-    """
-    Helper to look up a model from an "app_label.model_name" string.
-    """
-    try:
-        Model = models.get_model(*model_identifier.split("."))
-    except TypeError:
-        Model = None
-    if Model is None:
-        raise DeserializationError(
-            "Invalid model identifier: '%s'" %
-            model_identifier)
-    return Model
+register_serializer('compact_yaml', __name__)

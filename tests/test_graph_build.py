@@ -3,147 +3,162 @@ from textwrap import dedent
 import pytest
 
 from nicedjango.graph import ModelGraph
-from tests.a1.models import A, B, C
-from tests.a2.models import Real
-from tests.a3 import models as a3
-from tests.a4.models import Article, Book, BookReview, Piece
+from nicedjango.graph.utils import nodes_as_string
+from tests.a1.models import A, B, C, D
+from tests.a2 import models as a2
+from tests.a3.models import Article, Book, BookReview, Piece
 
 TEST_DATA = [
     ('a', None, """\
-       a1.a:
-         ignored subs:
-           a1.a.b > a1.b
-       """),
+        a1-a:
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+                  a1-a.b          to child            a1-b.pk
+        """),
     ('a', 'a.b', """\
-        a1.a:
-          subs:
-            a1.a.b > a1.b
-        a1.b:
-          parents:
-            a1.b.a_ptr > a1.a
-          ignored subs:
-            a1.b.c > a1.c
+        a1-a:
+                  a1-a.b          to child            a1-b.pk
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+        a1-b:
+                  a1-b.pk         to parent           a1-a.pk
+          excludes:
+                  a1-b.c          to child            a1-c.pk
+                  a1-b.e          to child            a1-e.pk
         """),
     ((A, B, C), None, """\
-       a1.a:
-         ignored subs:
-           a1.a.b > a1.b
-       a1.b:
-         parents:
-           a1.b.a_ptr > a1.a
-         ignored subs:
-           a1.b.c > a1.c
-       a1.c:
-         parents:
-           a1.c.b_ptr > a1.b
+        a1-a:
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+                  a1-a.b          to child            a1-b.pk
+        a1-b:
+                  a1-b.pk         to parent           a1-a.pk
+          excludes:
+                  a1-b.c          to child            a1-c.pk
+                  a1-b.e          to child            a1-e.pk
+        a1-c:
+                  a1-c.pk         to parent           a1-b.pk
+          excludes:
+                  a1-c.o          to foreign          a1-o.c
+                  a1-c.d          to child            a1-d.pk
+        """),
+    (D, None, """\
+        a1-a:
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+                  a1-a.b          to child            a1-b.pk
+        a1-b:
+                  a1-b.pk         to parent           a1-a.pk
+          excludes:
+                  a1-b.c          to child            a1-c.pk
+                  a1-b.e          to child            a1-e.pk
+        a1-c:
+                  a1-c.pk         to parent           a1-b.pk
+          excludes:
+                  a1-c.o          to foreign          a1-o.c
+                  a1-c.d          to child            a1-d.pk
+        a1-d:
+                  a1-d.pk         to parent           a1-c.pk
+          excludes:
+                  a1-d.g          to foreign          a1-g.d
+                  a1-d.m          to foreign        a1-m_d.d
+        """),
+    (D, 'd.m', """\
+        a1-a:
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+                  a1-a.b          to child            a1-b.pk
+        a1-b:
+                  a1-b.pk         to parent           a1-a.pk
+          excludes:
+                  a1-b.c          to child            a1-c.pk
+                  a1-b.e          to child            a1-e.pk
+        a1-c:
+                  a1-c.pk         to parent           a1-b.pk
+          excludes:
+                  a1-c.o          to foreign          a1-o.c
+                  a1-c.d          to child            a1-d.pk
+        a1-d:
+                  a1-d.m          to foreign        a1-m_d.d
+                  a1-d.pk         to parent           a1-c.pk
+          excludes:
+                  a1-d.g          to foreign          a1-g.d
+        a1-m:
+          excludes:
+                  a1-m.d          to foreign        a1-m_d.d
+                  a1-m.s          to foreign        a1-m_s.to_m
+        a1-m_d:
+                a1-m_d.d          to dependency       a1-d.pk
+                a1-m_d.m          to dependency       a1-m.pk
+        """),
+    (D, ('d.m', 'd.o', 'd.f'), """\
+        a1-a:
+          excludes:
+                  a1-a.f          to foreign          a1-f.a
+                  a1-a.b          to child            a1-b.pk
+        a1-b:
+                  a1-b.pk         to parent           a1-a.pk
+          excludes:
+                  a1-b.c          to child            a1-c.pk
+                  a1-b.e          to child            a1-e.pk
+        a1-c:
+                  a1-c.pk         to parent           a1-b.pk
+          excludes:
+                  a1-c.o          to foreign          a1-o.c
+                  a1-c.d          to child            a1-d.pk
+        a1-d:
+                  a1-d.m          to foreign        a1-m_d.d
+                  a1-d.pk         to parent           a1-c.pk
+          excludes:
+                  a1-d.g          to foreign          a1-g.d
+        a1-m:
+          excludes:
+                  a1-m.d          to foreign        a1-m_d.d
+                  a1-m.s          to foreign        a1-m_s.to_m
+        a1-m_d:
+                a1-m_d.d          to dependency       a1-d.pk
+                a1-m_d.m          to dependency       a1-m.pk
        """),
-    (Real, None, """\
-       a2.real:
-         ignored subs:
-           a2.real.sub > a2.sub
-         ignored rels:
-           a2.real.foreign > a2.foreign
-           a2.real.manytomany > a2.manytomany_m
-           a2.real.onetoone > a2.onetoone
-       """),
-    (Real, 'real.manytomany', """\
-        a2.manytomany:
-          ignored rels:
-            a2.manytomany.m > a2.manytomany_m
-            a2.manytomany.s > a2.manytomany_s
-        a2.real:
-          relates:
-            a2.real.manytomany > a2.manytomany_m
-          ignored subs:
-            a2.real.sub > a2.sub
-          ignored rels:
-            a2.real.foreign > a2.foreign
-            a2.real.onetoone > a2.onetoone
-        a2.manytomany_m:
-          depends:
-            a2.manytomany_m.manytomany > a2.manytomany
-            a2.manytomany_m.real > a2.real
-       """),
-    (Real, ('real.manytomany',
-            'real.onetoone',
-            'real.foreign',
-            'real.sub',
-            'sub.subsub'), """\
-        a2.manytomany:
-          ignored rels:
-            a2.manytomany.m > a2.manytomany_m
-            a2.manytomany.s > a2.manytomany_s
-        a2.real:
-          subs:
-            a2.real.sub > a2.sub
-          relates:
-            a2.real.foreign > a2.foreign
-            a2.real.manytomany > a2.manytomany_m
-            a2.real.onetoone > a2.onetoone
-        a2.sub:
-          parents:
-            a2.sub.real_ptr > a2.real
-          subs:
-            a2.sub.subsub > a2.subsub
-        a2.subsub:
-          parents:
-            a2.subsub.sub_ptr > a2.sub
-        a2.foreign:
-          depends:
-            a2.foreign.f > a2.real
-        a2.manytomany_m:
-          depends:
-            a2.manytomany_m.manytomany > a2.manytomany
-            a2.manytomany_m.real > a2.real
-        a2.onetoone:
-          depends:
-            a2.onetoone.r > a2.real
-            a2.onetoone.s > a2.onetoone
-          ignored rels:
-            a2.onetoone.onetoone > a2.onetoone
-       """),
-    ((a3.Article, a3.Book, a3.BookReview), None, """\
-       a3.article:
-         ignored rels:
-           a3.article.bookreview > a3.bookreview
-       a3.book:
-         ignored subs:
-           a3.book.bookreview > a3.bookreview
-       a3.bookreview:
-         parents:
-           a3.bookreview.book_ptr > a3.book
-         depends:
-           a3.bookreview.article_ptr > a3.article
+    ((a2.Article, a2.Book, a2.BookReview), None, """\
+        a2-article:
+          excludes:
+            a2-article.bookreview to foreign    a2-bookreview.article_ptr
+        a2-book:
+          excludes:
+               a2-book.bookreview to child      a2-bookreview.pk
+        a2-bookreview:
+            a2-bookreview.article_ptr to dependency a2-article.pk
+            a2-bookreview.pk         to parent        a2-book.pk
        """),
     ((Piece, Article, Book, BookReview), None, """\
-        a4.piece:
-          ignored subs:
-            a4.piece.article > a4.article
-            a4.piece.book > a4.book
-        a4.article:
-          parents:
-            a4.article.piece_ptr > a4.piece
-          ignored rels:
-            a4.article.bookreview > a4.bookreview
-        a4.book:
-          parents:
-            a4.book.piece_ptr > a4.piece
-          ignored subs:
-            a4.book.bookreview > a4.bookreview
-        a4.bookreview:
-          parents:
-            a4.bookreview.book_ptr > a4.book
-          depends:
-            a4.bookreview.article_ptr > a4.article
+        a3-piece:
+          excludes:
+              a3-piece.article    to child      a3-article.pk
+              a3-piece.book       to child         a3-book.pk
+        a3-article:
+            a3-article.pk         to parent       a3-piece.pk
+          excludes:
+            a3-article.bookreview to foreign    a3-bookreview.article_ptr
+        a3-book:
+               a3-book.pk         to parent       a3-piece.pk
+          excludes:
+               a3-book.bookreview to child      a3-bookreview.pk
+        a3-bookreview:
+            a3-bookreview.article_ptr to dependency a3-article.pk
+            a3-bookreview.pk         to parent        a3-book.pk
        """),
 ]
 TEST_IDS = list(map(lambda d: d[:2], TEST_DATA))
 
 
-@pytest.mark.parametrize(('queries', 'extras', 'expected'),
+@pytest.mark.parametrize(('queries', 'relations', 'expected'),
                          TEST_DATA, ids=TEST_IDS)
-def test_connections_by_string(queries, extras, expected):
-    graph = ModelGraph(queries, extras)
-    actual = graph.as_string() + '\n'
+def test_connections_by_string(queries, relations, expected):
+    graph = ModelGraph(queries, relations)
+    actual = nodes_as_string(graph.nodes.values()) + '\n'
     expected = dedent(expected)
+    # print '*******'
+    # print queries, relations
+    # print actual
+    # print '*******'
     assert actual == expected

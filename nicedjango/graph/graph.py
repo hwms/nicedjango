@@ -1,151 +1,110 @@
 from __future__ import print_function
 
-import logging
-from operator import attrgetter
+from time import time
 
-from django.core import serializers
+from django.core.serializers import register_serializer
+from django.db.models.base import ModelBase
 from django.db.models.loading import get_app, get_models
 from django.db.models.query import QuerySet
 
 from nicedjango._compat import basestring
+from nicedjango.graph.dumper import Dumper
+from nicedjango.graph.loader import Loader
 from nicedjango.graph.node import Node
-from nicedjango.graph.query import Query
-from nicedjango.utils import (coerce_tuple, divide_model_def, model_label,
-                              queryset_from_def, RememberingSet)
+from nicedjango.graph.utils import nodes_as_string, sort_nodes
+from nicedjango.utils import coerce_tuple, divide_model_def, queryset_from_def, RememberingSet
+from nicedjango.utils.py.iter import filter_attrs
+from nicedjango.utils.py.string import divide_string
 
-log = logging.getLogger(__name__)
+register_serializer('compact_csv', 'nicedjango.serializers.compact_csv')
+register_serializer('compact_python', 'nicedjango.serializers.compact_python')
+register_serializer('compact_yaml', 'nicedjango.serializers.compact_yaml')
 
 __all__ = ['ModelGraph']
 
 
 class ModelGraph(object):
 
-    def __init__(self, queries=None, extras=None, app=None):
+    def __init__(self, queries=None, relations=None, app=None, chunksize=1000):
         self.nodes = {}
-        self.extras = set()
-        self.sorted_nodes = []
+        self.includes = set()
         self._new_nodes = RememberingSet()
-        self._new_queries = RememberingSet()
-        self.initial_querystrings = []
         if app:
-            if queries or extras:
-                raise ValueError('queries or extras can\'t be defined together'
-                                 'with app.')
+            if queries or relations:
+                raise ValueError('queries or relations can\'t be defined '
+                                 'together with app.')
             app = get_app(app)
             queries = get_models(app, include_auto_created=True)
-        self.add_extras(*coerce_tuple(extras, basestring, QuerySet))
+        self.chunksize = chunksize
+        self.add_relations(*coerce_tuple(relations, basestring, QuerySet))
         self.add_queries(*coerce_tuple(queries, basestring, QuerySet))
 
-    def get_node(self, model):
-        label = model_label(model)
-        node = self.nodes.get(label, None)
-        if not node:
-            node = Node(self, model, label)
-            self.nodes[label] = node
-        return node
+        self._start = time()
+
+    def add_relations(self, *rel_defs):
+        for rel_def in rel_defs:
+            model_str, name = divide_string(rel_def, '.')
+            model, _ = divide_model_def(model_str)
+            node = self.get_node(model)
+            self.includes.add((node, name))
+
+    def add_queries(self, *args):
+        for arg in args:
+            self.add_queryset_def(arg)
+
+    def add_queryset_def(self, queryset_def):
+        queryset = queryset_from_def(queryset_def)
+        self.add_node(queryset.model).new_querysets.append(queryset)
 
     def add_node(self, arg):
         if not isinstance(arg, Node):
             arg = self.get_node(arg)
-        self._new_nodes.add(arg)
+        if arg.relations is None:
+            self._new_nodes.add(arg)
         while self._new_nodes:
             self._new_nodes.pop().init()
         return arg
 
-    def add_query(self, arg, **kwargs):
-        if isinstance(arg, Node):
-            node = arg
-            queryset = queryset_from_def(node.model)
-        else:
-            queryset = queryset_from_def(arg)
-            node = self.add_node(queryset.model)
+    def get_node(self, model):
+        if not isinstance(model, ModelBase):
+            model, _ = divide_model_def(model)
+        node_ = Node(self, model)
+        node = self.nodes.get(node_.label, None)
+        if not node:
+            node = node_
+            self.nodes[node.label] = node
+        return node
 
-        query = Query(node, queryset, **kwargs)
-        if query not in self._new_queries:
-            log.debug(
-                '%s %s %s' %
-                (node.label, query.pk_field, len(
-                    query.pks)))
-            self._new_queries.add(query)
-
-    def add_queries(self, *args):
-        for arg in args:
-            self.add_query(arg)
-
-    def as_string(self):
-        self.reset_sorted_notes()
-        lines = []
-        for node in self.sorted_nodes:
-            nl = node.as_lines()
-            if nl:
-                lines.extend(nl)
-        return '\n'.join(lines)
-
-    def show(self):
-        print(self.as_string())  # pragma: no cover
-
-    def reset_sorted_notes(self):
-        self.sorted_nodes = []
-        to_order = set(self.nodes.values())
-        found_one = True
-        while to_order and found_one:
-            found_one = False
-            for node in sorted(to_order):
-                can_be_added = True
-                for conn in node.deps | node.pars:
-                    if (conn.node != node
-                            and conn.node not in self.sorted_nodes):
-                        can_be_added = False
-                        break
-                if can_be_added:
-                    self.sorted_nodes.append(node)
-                    to_order.discard(node)
-                    found_one = True
-
-        if to_order:
-            # should never happen, just to be safe
-            raise ValueError('Failed to order circular'  # pragma: no cover
-                             ' nodes: %s' % to_order)  # pragma: no cover
+    def print_graph(self):
+        print(nodes_as_string(self.nodes.values()))  # pragma: no cover
 
     def update_pks(self):
-        while self._new_queries:
-            self._new_queries.pop().update_pks()
+        for node in sort_nodes(self.nodes.values()):
+            node.get_pks()
+        nodes = self.get_new_pks_nodes()
+        while nodes:
+            for node in nodes:
+                node.get_new_pks()
+            nodes = self.get_new_pks_nodes()
 
-    def dump_objects(self, outfile):
+    def get_new_pks_nodes(self):
+        return list(filter_attrs(sort_nodes(self.nodes.values()), 'new_pks'))
+
+    def get_dumper(self, serializer_name):
         self.update_pks()
-        self.reset_sorted_notes()
-        sorted_nodes = list(filter(attrgetter('pks'), self.sorted_nodes))
-        nodes_count = len(sorted_nodes)
-        for node_index, node in enumerate(sorted_nodes):
-            log.info('dumping %d/%d models: %s' % (node_index + 1, nodes_count,
-                                                   node.label))
-            node.dump_objects(outfile)
+        sorted_nodes = sort_nodes(self.nodes.values())
+        return Dumper(sorted_nodes, serializer_name, self.chunksize)
 
-    def add_extras(self, *conn_defs):
-        for conn_def in conn_defs:
-            model, name = divide_model_def(conn_def)
-            node = self.get_node(model)
-            related_infos = node.related_infos.get(name)
-            if not related_infos:
-                raise ValueError('Failed to get field by %s' % conn_def)
-            self.extras.add((node, name))
+    def dump_to_single_stream(self, serializer_name, stream):
+        self.get_dumper(serializer_name).dump_to_single_stream(stream)
 
-    def load_objects(self, stream_or_string):
-        node = None
-        names = None
-        values_list = []
-        for obj in serializers.deserialize('compact_yaml', stream_or_string):
-            actual_node = self.get_node(obj.model)
-            if actual_node != node:
-                if values_list:
-                    node.update_or_create_objects(names, values_list)
-                    values_list = []
-                node = actual_node
-                names = obj.names
+    def load_from_single_stream(self, serializer_name, stream):
+        loader = Loader(self, serializer_name)
+        loader.load_from_stream(stream)
 
-            values_list.append(obj.values)
-            if len(values_list) >= 100:
-                node.update_or_create_objects(names, values_list)
-                values_list = []
-        if values_list:
-            node.update_or_create_objects(names, values_list)
+    def dump_to_path(self, serializer_name, path):
+        self.get_dumper(serializer_name).dump_to_path(path)
+
+    def load_from_path(self, serializer_name, path):
+        loader = Loader(self, serializer_name)
+        loader.load_from_path(path)

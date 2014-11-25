@@ -1,15 +1,13 @@
 """
-Selective dumping and loading of only the needed model data for all objects and
-their related objects of one or more querysets.
+Selective dumping and loading of only the needed model data for all objects and their related
+objects of one or more querysets.
 
 This is done by
 
     * getting a graph of all relations between models,
-    * than getting all pks first chunked in steps of 10k
-    * and than dump them in an order that enables correct loading.
+    * getting all pks first in chunks,
+    * dump them in an order that enables correct loading.
 
-For now the serialization is handled by django's yaml decoder to enable queries
-in chunks for big data.
 """
 import logging
 from optparse import make_option
@@ -23,28 +21,32 @@ logging.basicConfig(level=logging.INFO)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
-        make_option('-d', '--dumpfile', action='store',
-                    help='File to dump to'),
-        make_option('-q', '--querysets', action='append',
-                    help='Queryset\'s in the form of <app>.<model> or'
-                         ' <app>.<model>.<queryset method calls>'),
-        make_option('-e', '--extra-rels', action='append',
+        make_option('-f', '--filepath', action='store',
+                    help='(File-)path to dump to.'),
+        make_option('-q', '--queries', action='append',
+                    help='Queries in the form of [<app>.]<model> or'
+                         ' [<app>.]<model>.<queryset method calls>'),
+        make_option('-r', '--relations', action='append',
                     help='Extra relations to be queried in the form of'
-                         ' <app>.<model>.<field>'),
-        make_option('-s', '--show', action='store_true',
-                    help='Show the to graph that would be queried'),
+                         ' [<app>.]<model>.<field>'),
+        make_option('-p', '--print', action='store_true',
+                    help='Print the graph that would be queried'),
+        make_option('-c', '--chunksize', action='store', type=int,
+                    default=1000, help='Maximum chunk size for queries'),
+        make_option('-s', '--serializer', action='store', default='compact_csv',
+                    choices=('compact_yaml', 'compact_csv'),
+                    help='Serializer to be used.'),
     )
     help = __doc__
 
     def handle(self, **options):
-        show = options['show']
-        dumpfile = options['dumpfile']
-        queryset_defs = options['querysets'] or []
-        extra_rel_defs = options['extra_rels'] or []
+        filepath = options['filepath']
+        queries = options['queries'] or []
+        relations = options['relations'] or []
+        chunksize = options['chunksize']
 
-        graph = ModelGraph(queryset_defs, extra_rel_defs)
-        if show:
-            graph.show()
-        if dumpfile:
-            with open(dumpfile, 'w+') as outfile:
-                graph.dump_objects(outfile)
+        graph = ModelGraph(queries, relations, chunksize=chunksize)
+        if options['print']:
+            graph.print_graph()
+        if filepath:
+            graph.dump_to_path(options['serializer'], filepath)

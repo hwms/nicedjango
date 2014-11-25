@@ -1,51 +1,34 @@
 import logging
-from collections import namedtuple
-from operator import attrgetter
+from collections import defaultdict
 
-from django.core import serializers
-
-from nicedjango.graph.bulk_creator import BulkValuesListCreator
-from nicedjango.utils import (chunked, get_own_direct_fields_with_name,
-                              get_own_related_infos)
+from nicedjango.graph.relation import get_relations
+from nicedjango.utils import model_label
+from nicedjango.utils.fields import get_pk_name
+from nicedjango.utils.py.iter import filter_attrs
+from nicedjango.utils.queries import queryset_as_chunks
 
 log = logging.getLogger(__name__)
 
 __all__ = ['Node']
 
-
-Connection = namedtuple('Connection', 'field node rel_field')
+LOG_FORMAT = 'Loading pks %s by %s chunk %%(cpos)d/%%(csize)d (%%(size)d)'
 
 
 class Node(object):
 
-    def __init__(self, graph, model, label):
+    def __init__(self, graph, model):
         self.graph = graph
         self.model = model
         self.meta = model._meta
-        self.related_infos = get_own_related_infos(self.model)
-        # TODO: deal with proxy default managers and dump only concrete model
-        self.direct_fields = \
-            get_own_direct_fields_with_name(model._meta.concrete_model)
-        self.pk_field = self.meta.pk.name
-        self.label = label
+        self.label = model_label(model)
+        self.pk_name = get_pk_name(model)
+        self.relations = None
+        self.includes = set()
+        self.excludes = set()
 
-        self.pars = set()
-        # target's models where the node.model is inherited from
-        self.subs = set()
-        # target's models where the node.model is base from (pk wise)
-        self.deps = set()
-        # targets that are dependencies for the node
-        self.rels = set()
-        # related nodes which are to be parsed
-        self.ignored_subs = set()
-        # not to be parsed sub nodes stored for graph.show
-        self.ignored_rels = set()
-        # not to be parsed related nodes stored for graph.show
-
+        self.new_querysets = []
         self.pks = set()
-        # pks discovered for this model
-
-        self.creator = None
+        self.new_pks = defaultdict(set)
 
     def __hash__(self):
         return hash(self.label)
@@ -56,99 +39,68 @@ class Node(object):
     def __lt__(self, other):  # pragma: no cover
         return self.label < other.label
 
-    def __le__(self, other):  # pragma: no cover
-        return self.__lt__(other) or self.__eq__(other)
-
-    def __gt__(self, other):  # pragma: no cover
-        return not (self.__lt__(other) or self.__eq__(other))
-
-    def __ge__(self, other):  # pragma: no cover
-        return not self.__lt__(other)
-
-    def __ne__(self, other):  # pragma: no cover
-        return not self.__eq__(other)
-
     def __repr__(self):  # pragma: no cover
         return r'<%s<%s>>' % (self.__class__.__name__, self.label)
 
-    def as_lines(self):
-        lines = []
-        for title, conns in (('parents', self.pars), ('depends', self.deps),
-                             ('subs', self.subs), ('relates', self.rels),
-                             ('ignored subs', self.ignored_subs),
-                             ('ignored rels', self.ignored_rels)):
-            sub_lines = []
-            for conn in conns:
-                sub_lines.append('    %s.%s > %s' % (self.label, conn.field,
-                                                     conn.node.label))
-            if sub_lines:
-                lines.append('  %s:' % title)
-                lines.extend(sorted(sub_lines))
-        if lines:
-            return ['%s:' % self.label] + lines
-        return lines
-
     def init(self):
-        for name, (rel_model, rel_name, is_dep, is_rel_pk
-                   ) in self.related_infos.items():
-            add_node = True
-            if is_dep:
-                if is_rel_pk:
-                    conns = self.pars
-                else:
-                    conns = self.deps
-            else:
-                if (self, name) in self.graph.extras:
-                    if is_rel_pk:
-                        conns = self.subs
-                    else:
-                        conns = self.rels
-                else:
-                    add_node = False
-                    if is_rel_pk:
-                        conns = self.ignored_subs
-                    else:
-                        conns = self.ignored_rels
+        self.includes = set()
+        self.excludes = set()
+        self.deps = []
+        self.deps_not_to_pk = []
+        self.query_names = [self.pk_name]
+        self.query_rel_nodes = [self]
+        self.relations = get_relations(self)
+        for relation in self.relations.values():
+            if not (relation.to_dep or (self, relation.name) in self.graph.includes):
+                self.excludes.add(relation)
+                continue
 
-            node = self.graph.get_node(rel_model)
-            conns.add(Connection(name, node, rel_name))
-            if add_node and node != self:
-                self.graph.add_node(node)
+            self.includes.add(relation)
+            if not relation.to_self:
+                self.graph.add_node(relation.rel_node)
+            if relation.to_dep and relation not in self.deps:
+                self.deps.append(relation)
+                self.query_names.append(relation.name)
+                self.query_rel_nodes.append(relation.rel_node)
+                if not relation.to_pk and relation not in self.deps_not_to_pk:
+                    self.deps_not_to_pk.append(relation)
 
-    def add_pks(self, pks, no_new_query=False):
-        pks = set(pks) - set([None])
-        nodes_and_rel_fields = [(self, self.pk_field)
-                                ] + list(map(attrgetter('node', 'rel_field'),
-                                             self.pars))
-        for node, rel_field in nodes_and_rel_fields:
-            new_pks = pks - node.pks
-            if new_pks:
-                node.pks.update(new_pks)
-                if not no_new_query:
-                    self.graph.add_query(node, pk_field=rel_field, pks=new_pks)
-                for conn in node.subs | node.rels:
-                    self.graph.add_query(conn.node, pk_field=conn.rel_field,
-                                         pks=new_pks)
+    def get_pks(self):
+        while self.new_querysets:
+            self.get_pks_from_queryset(self.new_querysets.pop())
 
-    def dump_objects(self, outfile):
-        pk_count = len(self.pks)
-        chunks_count = int(pk_count / 100) + 1
-        for chunk_index, pks in enumerate(chunked(self.pks, 100)):
-            log.info('dumping chunk %d/%d (%d) of %s'
-                     % (chunk_index + 1, chunks_count, len(pks), self.label))
-            queryset = self.model.objects.filter(pk__in=pks)
-            s = serializers.serialize('compact_yaml', queryset, indent=True,
-                                      use_natural_keys=False, width=10000)
-            outfile.write(s)
+    def get_pks_from_queryset(self, queryset, rel_name=None, rel_pks=None):
+        queryset = queryset.values_list(*self.query_names)
+        for pks_chunk in queryset_as_chunks(queryset, self.graph.chunksize, rel_name, rel_pks):
+            log.info(LOG_FORMAT % (self.label, rel_name), vars(pks_chunk))
+            if not pks_chunk:
+                raise ValueError('no pks returned: %s' % (queryset.query))
+            self.get_pks_from_list(pks_chunk)
 
-    def update_or_create_objects(self, fieldnames, values_list):
-        log.info('Update or create %d %s' % (len(values_list), self.label))
-        names = list(filter(lambda n: n in self.direct_fields, fieldnames))
-        names_not_in = set(fieldnames) - set(names)
-        if names_not_in:
-            raise ValueError('Fields %s missing in model %s.'
-                             % (names_not_in, self.label))
-        fields = list(map(self.direct_fields.get, names))
-        if not self.creator:
-            self.creator = BulkValuesListCreator(self.model, fields)
-        self.creator.update_or_create(values_list)
+    def get_pks_from_list(self, pks_list):
+        for pks_row in pks_list:
+            for rel_node, rel_name, pk in zip(self.query_rel_nodes, self.query_names, pks_row):
+                if pk is not None:
+                    rel_node.add_pk(pk, self, rel_name)
+
+    def add_pk(self, pk, from_node, name):
+        if pk in self.pks or pk in self.new_pks[self.pk_name]:
+            return
+        if (from_node == self and name == self.pk_name) or not self.deps_not_to_pk:
+            self.pks.add(pk)
+            for other in filter_attrs(self.includes, to_dep=False):
+                other.rel_node.new_pks[other.rel_name].add(pk)
+            for parent in filter_attrs(self.includes, to_parent=True):
+                parent.rel_node.add_pk(pk, parent.rel_node, parent.rel_node.pk_name)
+        else:
+            self.new_pks[self.pk_name].add(pk)
+
+    def get_new_pks(self):
+        if not self.new_pks:
+            return
+        while self.new_pks:
+            name, new_pks = self.new_pks.popitem()
+            if not new_pks:
+                continue
+            log.debug('%s %s', name, new_pks)
+            self.get_pks_from_queryset(self.model._default_manager.all(), name, new_pks)
