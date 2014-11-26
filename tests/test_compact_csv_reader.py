@@ -1,13 +1,9 @@
 from __future__ import unicode_literals
 
-import logging
-
-import pytest
 from django.utils import six
+import pytest
 
 from nicedjango.utils.compact_csv import CsvReader
-
-log = logging.getLogger(__name__)
 
 
 @pytest.fixture

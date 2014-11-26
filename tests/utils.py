@@ -1,14 +1,15 @@
+from __future__ import unicode_literals
 from operator import attrgetter
 
 from django.db.models.loading import get_app, get_models
 
-from nicedjango._compat import exclude
+from nicedjango._compat import exclude, unicode
 from nicedjango.graph.utils import sort_nodes
 from nicedjango.serializers.compact_python import Serializer
 from nicedjango.utils import queryset_from_def
 from nicedjango.utils.bulk import reset_tables
 
-APPNAMES = ('a1', 'a2', 'a3')
+APPNAMES = ('a1', 'a2', 'a3', 'a4')
 
 
 def delete_all():
@@ -42,7 +43,7 @@ def get_text_pydump(pydump):
                         row.values())[0])))
             model_vals = []
         else:
-            model_vals.append(' '.join(map(str, row)))
+            model_vals.append(' '.join(map(unicode, row)))
     if model_vals:
         lines.append('    %s' % ', '.join(model_vals))
     return '\n'.join(lines)

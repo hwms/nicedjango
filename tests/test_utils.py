@@ -21,8 +21,7 @@ DIVIDE_RESULTS = (
 DIVIDE_RESULTS_IDS = list(map(lambda d: model_label(d[0]), DIVIDE_RESULTS))
 
 
-@pytest.mark.parametrize(('model_def', 'model', 'rest'), DIVIDE_RESULTS,
-                         ids=DIVIDE_RESULTS_IDS)
+@pytest.mark.parametrize(('model_def', 'model', 'rest'), DIVIDE_RESULTS, ids=DIVIDE_RESULTS_IDS)
 def test_divide_model_def(model_def, model, rest):
     actual = divide_model_def(model_def)
     assert actual == (model, rest)
@@ -35,7 +34,8 @@ DIVIDE_FAILS = (
     'a1',
     'a1-foo',
     'a1-foo.bar',
-    object())
+    object()
+)
 DIVIDE_FAILS_IDS = list(map(model_label, DIVIDE_FAILS))
 
 

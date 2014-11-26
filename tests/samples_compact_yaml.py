@@ -255,4 +255,28 @@ SAMPLES_YAML = {
         - [8, M4, M5]
         - [9, M5, M5]
         """,
+    'q': """\
+        - a4-question: [pk, pub_date, question_text]
+        - [Q1, !!timestamp '2014-01-01 00:00:00', 'what question 1?']
+        - [Q2, !!timestamp '2014-01-02 00:00:00', 'what question 2?']
+        - [Q3, !!timestamp '2014-01-03 00:00:00', 'what question 3?']
+        """,
+    'q_r': """\
+        - a4-question: [pk, pub_date, question_text]
+        - [Q1, !!timestamp '2014-01-01 00:00:00', 'what question 1?']
+        - [Q2, !!timestamp '2014-01-02 00:00:00', 'what question 2?']
+        - [Q3, !!timestamp '2014-01-03 00:00:00', 'what question 3?']
+        - a4-response: [pk, question, response_text, votes]
+        - [R1, Q1, 'NULL', 0]
+        - [R2, Q1, None, 111]
+        - [R3, Q2, foo, 222]
+        - [R4, Q2, bar, 333]
+        - [R5, Q3, foobar, 444]
+        """,
+    's': """\
+        - a4-sample: [pk, bool, comma, date, dec, float, nullbool, slug, text, time]
+        - [S1, true, '[1, 2, 3]', 2014-02-01, '12.34', 1.23, false, abc, foobar, '01:01:00']
+        - [S2, false, '[4, 5, 6]', 2014-02-02, '56.78', 3.45, true, def, "\\xC2", '01:02:00']
+        - [S3, true, '[]', 2014-02-03, '-9.12', 6.78, null, '', '', '01:03:00']
+        """,
 }

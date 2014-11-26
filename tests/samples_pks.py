@@ -126,4 +126,14 @@ SAMPLES_PKS = {
               a1-m_d              1 2
               a1-m_s              3 4 5 6 7 8 9
         """,
+    'q': """\
+        pks_0 a4-question         Q1 Q2 Q3
+        """,
+    'q_r': """\
+        pks_0 a4-question         Q1 Q2 Q3
+        new_0 a4-response.question     Q1 Q2 Q3
+        """,
+    's': """\
+        pks_0 a4-sample           S1 S2 S3
+        """,
 }

@@ -22,9 +22,7 @@ class Serializer(BaseSerializer):
         self.first_for_label = True
 
     def serialize(self, queryset, **options):
-        """
-        Serialize queryset.values_list().
-        """
+        "Serialize queryset.values_list()."
         self.options = options
         self.stream = options.pop("stream", six.StringIO())
         self.selected_fields = options.pop("fields", None)
@@ -74,10 +72,7 @@ class Serializer(BaseSerializer):
 
 
 class Deserializer(six.Iterator):
-
-    """
-    Abstract base deserializer class.
-    """
+    "Abstract base deserializer class."
     multiple_streams = False
 
     def __init__(self, stream_or_string, **options):
@@ -98,7 +93,7 @@ class Deserializer(six.Iterator):
         return self
 
     def __next__(self):
-        """Iteration iterface -- return the next item in the stream"""
+        "Iteration iterface -- return the next item in the stream"
         raise NotImplementedError
 
 
@@ -114,7 +109,7 @@ class DeserializedValuesObject(DeserializedObject):
 
     @property
     def object(self):
-        "backward compatible on demand model creation"
+        "Backward compatible on demand model creation"
         attnames = []
         for name in self.names:
             field, _, _, _ = self.model._meta.get_field_by_name(name)

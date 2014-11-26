@@ -1,12 +1,7 @@
-from __future__ import unicode_literals
-
-from textwrap import dedent
-
 import pytest
 
 from nicedjango.graph.graph import ModelGraph
 from nicedjango.graph.utils import sort_nodes
-from tests.samples import reset_samples, SAMPLES
 from tests.samples_pks import SAMPLES_PKS
 
 
@@ -42,17 +37,10 @@ class DummyGraph(ModelGraph):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(('key'), SAMPLES.keys())
-def test_pks(key):
-    queries, relations = SAMPLES[key]
-    expected = dedent(SAMPLES_PKS[key])[:-1]
-
-    reset_samples()
+@pytest.mark.graph(expected_no_nl=SAMPLES_PKS)
+def test(test_id, queries, relations, expected):
     graph = DummyGraph(queries, relations)
     graph.update_pks()
     actual = '\n'.join(graph.all_pks_logs)
-    # print '*******'
-    # print key
-    # print actual
-    # print '*******'
+    # print('\n_____\n%s\n-----\n%s\n=====\n' % (test_id, actual))
     assert expected == actual

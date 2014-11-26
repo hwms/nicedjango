@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 SAMPLES_CSV = {
     'a': """\
         a1-a
@@ -317,5 +319,33 @@ SAMPLES_CSV = {
             7,"M5","M4"
             8,"M4","M5"
             9,"M5","M5"
+        """,
+    'q': """\
+        a4-question
+            a4-question:pk,pub_date,question_text
+            "Q1",2014-01-01 00:00:00,"what question 1?"
+            "Q2",2014-01-02 00:00:00,"what question 2?"
+            "Q3",2014-01-03 00:00:00,"what question 3?"
+        """,
+    'q_r': """\
+        a4-question
+            a4-question:pk,pub_date,question_text
+            "Q1",2014-01-01 00:00:00,"what question 1?"
+            "Q2",2014-01-02 00:00:00,"what question 2?"
+            "Q3",2014-01-03 00:00:00,"what question 3?"
+        a4-response
+            a4-response:pk,question,response_text,votes
+            "R1","Q1","NULL",0
+            "R2","Q1","None",111
+            "R3","Q2","foo",222
+            "R4","Q2","bar",333
+            "R5","Q3","foobar",444
+        """,
+    's': """\
+        a4-sample
+            a4-sample:pk,bool,comma,date,dec,float,nullbool,slug,text,time
+            "S1",1,"[1, 2, 3]",2014-02-01,12.34,1.23,0,"abc","foobar",01:01:00
+            "S2",0,"[4, 5, 6]",2014-02-02,56.78,3.45,1,"def","\xc2",01:02:00
+            "S3",1,"[]",2014-02-03,-9.12,6.78,NULL,"","",01:03:00
         """,
 }

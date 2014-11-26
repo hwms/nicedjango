@@ -130,7 +130,6 @@ class BulkCreator(object):
         if self.is_mysql:
             cursor = self.connection.cursor()
             cursor.execute('ALTER TABLE %s AUTO_INCREMENT = 1' % self.table)
-            transaction.commit_unless_managed(self.manager.db)
         if self.is_pgsql:
             cursor = self.connection.cursor()
             cursor.execute("SELECT pg_get_serial_sequence('%s', '%s')"
@@ -138,4 +137,4 @@ class BulkCreator(object):
             seq_name = list(cursor)[0][0]
             if seq_name:
                 cursor.execute("ALTER SEQUENCE %s RESTART WITH 1" % seq_name)
-            transaction.commit_unless_managed(self.manager.db)
+        transaction.commit_unless_managed(self.manager.db)

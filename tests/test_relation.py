@@ -92,9 +92,6 @@ def test_get_relations(model, expected):
     expected = dedent(expected)[:-1]
     graph = ModelGraph()
     rels = get_relations(graph.get_node(model)).values()
-    actual = '\n'.join(map(str, rels))
-    # print '******'
-    # print model
-    # print actual
-    # print '******'
+    actual = dedent('\n'.join(map(str, rels)))
+    print('\n_____\n%s\n-----\n%s\n=====\n' % (model, actual))
     assert dedent(actual) == expected

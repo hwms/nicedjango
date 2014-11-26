@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from collections import Iterator
 
 from django.utils.encoding import is_protected_type, smart_text

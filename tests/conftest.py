@@ -1,9 +1,14 @@
+from itertools import starmap
 import logging
-import sys
 from subprocess import call
+from textwrap import dedent
 
 import django
 from django.conf import settings
+
+from nicedjango._compat import imap, izip
+from tests.utils import get_sorted_models
+
 
 DBS = {'sq': {'ENGINE': 'django.db.backends.sqlite3',
               'NAME': ':memory:',
@@ -26,34 +31,91 @@ DBS = {'sq': {'ENGINE': 'django.db.backends.sqlite3',
 }
 
 
+def parametrize_args(metafunc, params_dict, **kwargs):
+    "Parametrize by dict filtered and ordered by functions argnames."
+    argnames = []
+    params = []
+    for name in metafunc.funcargnames:
+        if name in params_dict:
+            argnames.append(name)
+            params.append(params_dict[name])
+
+    metafunc.parametrize(argnames, list(izip(*params)), **kwargs)
+
+
+def _prep_expected_samples_params(metafunc, ids):
+    "Prep kwargs like expected, expected_no_nl, expected2_no_nl."
+    for name, samples_dict in metafunc.function.graph.kwargs.items():
+        if name.startswith('expected'):
+            yield _prep_samples(name, samples_dict, ids)
+
+def _prep_samples(name, samples_dict, ids):
+    samples = list(imap(lambda i: dedent(samples_dict[i]), ids))
+    if name.endswith('_no_nl'):
+        samples = list(imap(lambda e: e[:-1], samples))
+        name = name[:-6]
+    return name, samples
+
+def parametrize_graph_test(metafunc):
+    """
+    Graph tests can be automagically parametrized by this.
+    For parameters .samples.SAMPLES is used as ids, queries and relations base.
+    Additionally .samples_compact_python.SAMPLES_PYTHON is used to provide expected_dump.
+    Optional one can give multiple other expected samples with:
+
+        @pytest.mark.graph(expected[a-z0-9][_no_nl]=SAMPLES_XY)
+
+    Values there will be dedented and last char will be stripped if expected.. ends in '_no_nl'.
+    """
+    from .samples import SAMPLES
+    from .samples_compact_python import SAMPLES_PYTHON
+    from nicedjango.graph import ModelGraph
+
+    params = {}
+    params['test_id'] = ids = SAMPLES.keys()
+    params['queries'], params['relations'] = zip(*SAMPLES.values())
+
+    params.update(_prep_expected_samples_params(metafunc, ids))
+
+    if 'expected_dump' in metafunc.funcargnames:
+        params['expected_dump'] = _prep_samples('expected_no_nl', SAMPLES_PYTHON, ids)[1]
+
+    if 'graph' in metafunc.funcargnames:
+        params['graph'] = graphs = list(starmap(ModelGraph, SAMPLES.values()))
+
+        if 'sorted_models' in metafunc.funcargnames:
+            params['sorted_models'] = list(imap(lambda g: get_sorted_models(g.nodes.values()),
+                                                     graphs))
+
+    parametrize_args(metafunc, params, ids=ids)
+
+
+def setup_graph_test(item):
+    from .samples import reset_samples
+    reset_samples()
+
+
+def pytest_generate_tests(metafunc):
+    if hasattr(metafunc.function, 'graph'):
+        parametrize_graph_test(metafunc)
+
+
+def pytest_runtest_setup(item):
+    item.session._setupstate.prepare(item)
+    if hasattr(item.function, 'graph'):
+        setup_graph_test(item)
+
+
 def pytest_addoption(parser):
     parser.addoption("--db", action="store", choices=['sq', 'my', 'pg'], default='sq',
                      help="run with db")
 
 
-def get_db_from_cmd_line_args():
-    # if there is another way with pytest in pytest_configure to get it, this can vanish
-    db = 'sq'
-    is_this_one = False
-    for arg in sys.argv:
-        if is_this_one:
-            if arg in ['sq', 'my', 'pg']:
-                return arg
-            return db
-        if arg.startswith('--db'):
-            if arg[5:] in ['sq', 'my', 'pg']:
-                return arg[5:]
-            is_this_one = True
-    return db
-
-
-def pytest_configure():
-    db = get_db_from_cmd_line_args()
-    db_conf = DBS[db]
-
-    if db == 'my':
+def pytest_configure(config):
+    db_conf = DBS[config.option.db]
+    if config.option.db == 'my':
         call(['mysql', '-u', 'root', '-e', 'create database if not exists nicedjango;'])
-    elif db == 'pg':
+    elif config.option.db == 'pg':
         call(['psql', '-U', 'postgres', '-c', 'create database nicedjango;'])
 
     settings.configure(
@@ -90,6 +152,7 @@ def pytest_configure():
             'tests.a1',
             'tests.a2',
             'tests.a3',
+            'tests.a4',
         ),
         LOGGING={'version': 1,
                  'handlers': {'console': {'level': 'DEBUG', 'class': 'logging.StreamHandler'}},
