@@ -17,9 +17,10 @@ log = logging.getLogger(__name__)
 
 class Loader(object):
 
-    def __init__(self, graph, serializer_name, **options):
+    def __init__(self, graph, serializer_name, chunksize=None, **options):
         self.graph = graph
         self.deserializer = serializers.get_deserializer(serializer_name)
+        self.chunksize = chunksize
         self.options = options
         self.multiple_streams = getattr(self.deserializer, 'multiple_streams', False)
         self.stream = None
@@ -47,7 +48,7 @@ class Loader(object):
         return self.graph.add_node(label)
 
     def load_from_stream(self, stream, **options):
-        for objs in as_chunks(self.deserializer(stream), self.graph.chunksize, attrgetter('label')):
+        for objs in as_chunks(self.deserializer(stream), self.chunksize, attrgetter('label')):
             self.load_objects(objs)
 
     def load_objects(self, objs):
@@ -56,7 +57,8 @@ class Loader(object):
         log.info('Load %s %0.4f /%6d = %0.4f/obj', msg, objs.duration, objs.len, objs.per_obj)
         start = time()
         try:
-            bulk_replace_values(list(map_attr(objs, 'values')), obj.model, obj.names)
+            bulk_replace_values(list(map_attr(objs, 'values')), obj.model, obj.names,
+                                self.chunksize)
         finally:
             duration = time() - start
             log.info('Save %s %0.4f /%6d = %0.4f/obj', msg, duration, objs.len, duration / objs.len)

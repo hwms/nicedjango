@@ -6,7 +6,7 @@ import pytest
 from nicedjango.graph.graph import ModelGraph
 from nicedjango.graph.loader import Loader
 from tests.samples_compact_csv import SAMPLES_CSV
-from tests.utils import delete_all, get_pydump, get_text_pydump
+from tests.utils import delete_all, get_pydump, get_text_pydump, print_actual
 
 
 def read_files_into_indented_string(paths):
@@ -34,7 +34,7 @@ def test(test_id, queries, relations, expected, expected_dump, graph, sorted_mod
     assert set(expected_filepaths) == set(actual_filepaths)
 
     actual = read_files_into_indented_string(expected_filepaths)
-    # print('\n_____\n%s\n-----\n%s\n=====\n' % (test_id, actual))
+    print_actual(test_id, actual)
     assert expected == actual
 
     delete_all()

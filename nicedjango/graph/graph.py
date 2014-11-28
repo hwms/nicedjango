@@ -25,7 +25,7 @@ __all__ = ['ModelGraph']
 
 class ModelGraph(object):
 
-    def __init__(self, queries=None, relations=None, app=None, chunksize=1000):
+    def __init__(self, queries=None, relations=None, app=None, chunksize=100000):
         self.nodes = {}
         self.includes = set()
         self._new_nodes = RememberingSet()
@@ -75,8 +75,11 @@ class ModelGraph(object):
             self.nodes[node.label] = node
         return node
 
-    def print_graph(self):
-        print(nodes_as_string(self.nodes.values()))  # pragma: no cover
+    def relations_as_string(self):
+        return nodes_as_string(self.nodes.values())
+
+    def print_relations(self):
+        print(self.relations_as_string()) # pragma: no cover
 
     def update_pks(self):
         for node in sort_nodes(self.nodes.values()):
@@ -95,16 +98,17 @@ class ModelGraph(object):
         sorted_nodes = sort_nodes(self.nodes.values())
         return Dumper(sorted_nodes, serializer_name, self.chunksize)
 
+    def get_loader(self, serializer_name):
+        return Loader(self, serializer_name, self.chunksize)
+
     def dump_to_single_stream(self, serializer_name, stream):
         self.get_dumper(serializer_name).dump_to_single_stream(stream)
 
     def load_from_single_stream(self, serializer_name, stream):
-        loader = Loader(self, serializer_name)
-        loader.load_from_stream(stream)
+        self.get_loader(serializer_name).load_from_stream(stream)
 
     def dump_to_path(self, serializer_name, path):
         self.get_dumper(serializer_name).dump_to_path(path)
 
     def load_from_path(self, serializer_name, path):
-        loader = Loader(self, serializer_name)
-        loader.load_from_path(path)
+        self.get_loader(serializer_name).load_from_path(path)

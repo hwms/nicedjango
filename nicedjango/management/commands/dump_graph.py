@@ -30,7 +30,7 @@ class Command(BaseCommand):
                     help='Extra relations to be queried in the form of'
                          ' [<app>.]<model>.<field>'),
         make_option('-p', '--print', action='store_true',
-                    help='Print the graph that would be queried'),
+                    help='Print the relations to be queried'),
         make_option('-c', '--chunksize', action='store', type=int,
                     default=1000, help='Maximum chunk size for queries'),
         make_option('-s', '--serializer', action='store', default='compact_csv',
@@ -47,6 +47,6 @@ class Command(BaseCommand):
 
         graph = ModelGraph(queries, relations, chunksize=chunksize)
         if options['print']:
-            graph.print_graph()
+            graph.print_relations()
         if filepath:
             graph.dump_to_path(options['serializer'], filepath)

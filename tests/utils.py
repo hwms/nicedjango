@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 from operator import attrgetter
 
 from django.db.models.loading import get_app, get_models
@@ -9,7 +9,16 @@ from nicedjango.serializers.compact_python import Serializer
 from nicedjango.utils import queryset_from_def
 from nicedjango.utils.bulk import reset_tables
 
+
 APPNAMES = ('a1', 'a2', 'a3', 'a4')
+PRINT_ACTUAL = False
+
+
+def print_actual(test_id, actual):
+    if PRINT_ACTUAL:
+        print('\r%s\r\'%s\': """\\' % ((' ' * 80), test_id))
+        print('\n'.join(map(lambda s: '    %s' % s, actual.split('\n'))))
+        print('    """,')
 
 
 def delete_all():
@@ -34,13 +43,7 @@ def get_text_pydump(pydump):
         if isinstance(row, dict):
             if model_vals:
                 lines.append('    %s' % ', '.join(model_vals))
-                model_vals = []
-            lines.append(
-                '%s: %s' %
-                (list(
-                    row.keys())[0], ' '.join(
-                    list(
-                        row.values())[0])))
+            lines.append('%s: %s' % (list(row.keys())[0], ' '.join(list(row.values())[0])))
             model_vals = []
         else:
             model_vals.append(' '.join(map(unicode, row)))

@@ -177,8 +177,8 @@ SAMPLES_PYTHON = {
             1 1
         """,
     'a3': """\
-        a3-piece: pk
-            1
+        a3-piece: pk name
+            1 
         a3-article: pk headline
             1 The only Review for The common ancestor
         a3-book: pk title

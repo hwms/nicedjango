@@ -101,7 +101,7 @@ class BulkCreator(object):
         transaction.commit_unless_managed(self.manager.db)
 
     def replace_into_mysql(self, values_list):
-        for chunk in as_chunks(values_list, 10000):
+        for chunk in as_chunks(values_list, self.chunksize):
             lines = []
             for row in chunk:
                 lines.append(('%s\n' % smart_text(','.join(map(quote_value, row)))).encode('utf-8'))

@@ -255,6 +255,24 @@ SAMPLES_YAML = {
         - [8, M4, M5]
         - [9, M5, M5]
         """,
+    'a2': """\
+        - a2-article: [pk, headline]
+        - [1, The only Review for The explicit AutoField]
+        - a2-book: [pk, title]
+        - [1, The explicit AutoField]
+        - a2-bookreview: [pk, article_ptr]
+        - [1, 1]
+        """,
+    'a3': """\
+        - a3-piece: [pk]
+        - [1]
+        - a3-article: [pk, headline]
+        - [1, The only Review for The common ancestor]
+        - a3-book: [pk, title]
+        - [1, The common ancestor]
+        - a3-bookreview: [pk, article_ptr]
+        - [1, 1]
+        """,
     'q': """\
         - a4-question: [pk, pub_date, question_text]
         - [Q1, !!timestamp '2014-01-01 00:00:00', 'what question 1?']

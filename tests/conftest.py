@@ -6,9 +6,6 @@ from textwrap import dedent
 import django
 from django.conf import settings
 
-from nicedjango._compat import imap, izip
-from tests.utils import get_sorted_models
-
 
 DBS = {'sq': {'ENGINE': 'django.db.backends.sqlite3',
               'NAME': ':memory:',
@@ -33,6 +30,7 @@ DBS = {'sq': {'ENGINE': 'django.db.backends.sqlite3',
 
 def parametrize_args(metafunc, params_dict, **kwargs):
     "Parametrize by dict filtered and ordered by functions argnames."
+    from nicedjango._compat import izip
     argnames = []
     params = []
     for name in metafunc.funcargnames:
@@ -50,6 +48,7 @@ def _prep_expected_samples_params(metafunc, ids):
             yield _prep_samples(name, samples_dict, ids)
 
 def _prep_samples(name, samples_dict, ids):
+    from nicedjango._compat import imap
     samples = list(imap(lambda i: dedent(samples_dict[i]), ids))
     if name.endswith('_no_nl'):
         samples = list(imap(lambda e: e[:-1], samples))
@@ -69,8 +68,9 @@ def parametrize_graph_test(metafunc):
     """
     from .samples import SAMPLES
     from .samples_compact_python import SAMPLES_PYTHON
-    from nicedjango.graph import ModelGraph
-
+    from nicedjango import ModelGraph
+    from nicedjango._compat import imap
+    from tests.utils import get_sorted_models
     params = {}
     params['test_id'] = ids = SAMPLES.keys()
     params['queries'], params['relations'] = zip(*SAMPLES.values())
@@ -91,8 +91,9 @@ def parametrize_graph_test(metafunc):
 
 
 def setup_graph_test(item):
-    from .samples import reset_samples
-    reset_samples()
+    if hasattr(item.function, 'django_db'):
+        from .samples import reset_samples
+        reset_samples()
 
 
 def pytest_generate_tests(metafunc):
@@ -140,6 +141,7 @@ def pytest_configure(config):
             'django.contrib.messages.middleware.MessageMiddleware',
         ),
         INSTALLED_APPS=(
+            'django.contrib.admin',
             'django.contrib.auth',
             'django.contrib.contenttypes',
             'django.contrib.sessions',
@@ -163,7 +165,7 @@ def pytest_configure(config):
     if hasattr(django, 'setup'):
         django.setup()
 
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
     for level, color in ((logging.INFO, 32), (logging.WARNING, 33), (logging.ERROR, 31),
                          (logging.DEBUG, 34), (logging.CRITICAL, 35)):
         logging.addLevelName(level, "\033[1;%dm%s\033[1;m" % (color, logging.getLevelName(level)))

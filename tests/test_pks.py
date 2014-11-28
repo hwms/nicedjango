@@ -3,7 +3,7 @@ import pytest
 from nicedjango.graph.graph import ModelGraph
 from nicedjango.graph.utils import sort_nodes
 from tests.samples_pks import SAMPLES_PKS
-
+from tests.utils import print_actual
 
 class DummyGraph(ModelGraph):
 
@@ -42,5 +42,5 @@ def test(test_id, queries, relations, expected):
     graph = DummyGraph(queries, relations)
     graph.update_pks()
     actual = '\n'.join(graph.all_pks_logs)
-    # print('\n_____\n%s\n-----\n%s\n=====\n' % (test_id, actual))
+    print_actual(test_id, actual)
     assert expected == actual

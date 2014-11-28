@@ -1,9 +1,17 @@
 from __future__ import unicode_literals
+
 from collections import OrderedDict
 
+from django import VERSION
+
 from tests.a1.models import A, B, C, D, E, F, G, M, M_d, M_s, O, P
+from tests.a2 import models as a2
+from tests.a3 import models as a3
 from tests.a4.models import Question, Response, Sample
 from tests.utils import delete_all
+
+
+PRINT_SAMPLES = True
 
 
 def reset_samples():
@@ -45,6 +53,12 @@ def reset_samples():
     m_5.s.add(m_4)
     m_5.s.add(m_5)
 
+    a2.BookReview.objects.create(title='The explicit AutoField',
+                                 headline='The only Review for The explicit AutoField')
+    if VERSION[:2] != (1, 7):
+        a3.BookReview.objects.create(title='The common ancestor',
+                                     headline='The only Review for The common ancestor')
+
     q_1 = Question.objects.create(id='Q1', pub_date='2014-01-01', question_text='what question 1?')
     q_2 = Question.objects.create(id='Q2', pub_date='2014-01-02', question_text='what question 2?')
     q_3 = Question.objects.create(id='Q3', pub_date='2014-01-03', question_text='what question 3?')
@@ -63,27 +77,30 @@ def reset_samples():
 
 
 SAMPLES = OrderedDict([
-    ('a', ((A,), ())),
-    ('b', ((B,), ())),
-    ('c', ((C,), ())),
-    ('d', ((D,), ())),
-    ('e', ((E,), ())),
-    ('f', ((F,), ())),
-    ('g', ((G,), ())),
-    # TODO: ('p', ((P,), ())),
-    ('o', ((O,), ())),
-    ('m', ((M,), ())),
-    ('m_d', ((M_d,), ())),
-    ('m_s', ((M_s,), ())),
-    ('a_some', ((A.objects.filter(id__in=('A2', 'D1')),), ())),
-    ('a_some_a_b', ((A.objects.filter(id__in=('A2', 'D1')),), ('a.b',))),
-    ('f_a_d', ((F,), ('a.d',))),
-    ('d_a_f', ((D,), ('a.f',))),
-    ('o_one_o_s', ((O.objects.filter(id='O4'),), (),)),
-    ('m_one_m_s', ((M.objects.filter(id='M5'),), ('m.s',))),
-    ('d_d_m', ((D,), ('d.m',))),
-    ('d_d_m_m_s', ((D,), ('d.m', 'm.s'))),
-    ('q', ((Question,), ())),
-    ('q_r', ((Question,), ('question.response'))),
-    ('s', ((Sample,), ())),
+    ('a', (A, ())),
+    ('b', (B, ())),
+    ('c', (C, ())),
+    ('d', (D, ())),
+    ('e', (E, ())),
+    ('f', (F, ())),
+    ('g', (G, ())),
+    # TODO: ('p', (P, ())),
+    ('o', (O, ())),
+    ('m', (M, ())),
+    ('m_d', (M_d, ())),
+    ('m_s', (M_s, ())),
+    ('a_some', (A.objects.filter(id__in=('A2', 'D1')), ())),
+    ('a_some_a_b', (A.objects.filter(id__in=('A2', 'D1')), 'a.b')),
+    ('f_a_d', (F, 'a.d')),
+    ('d_a_f', (D, 'a.f')),
+    ('o_one_o_s', (O.objects.filter(id='O4'), (),)),
+    ('m_one_m_s', (M.objects.filter(id='M5'), 'm.s')),
+    ('d_d_m', (D, 'd.m')),
+    ('d_d_m_m_s', (D, ('d.m', 'm.s'))),
+    ('q', (Question, ())),
+    ('q_r', (Question, 'question.response')),
+    ('a2', ('a2-bookreview', 'a2-bookreview.book')),
+    ('a3', ('a3-bookreview', 'a3-bookreview.book')),
 ])
+if VERSION[:2] == (1, 7):
+    SAMPLES.pop('a3')

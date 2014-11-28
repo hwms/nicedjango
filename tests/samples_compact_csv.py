@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+
 SAMPLES_CSV = {
     'a': """\
         a1-a
@@ -319,6 +320,31 @@ SAMPLES_CSV = {
             7,"M5","M4"
             8,"M4","M5"
             9,"M5","M5"
+        """,
+    'a2': """\
+        a2-article
+            a2-article:pk,headline
+            1,"The only Review for The explicit AutoField"
+        a2-book
+            a2-book:pk,title
+            1,"The explicit AutoField"
+        a2-bookreview
+            a2-bookreview:pk,article_ptr
+            1,1
+        """,
+    'a3': """\
+        a3-piece
+            a3-piece:pk
+            1
+        a3-article
+            a3-article:pk,headline
+            1,"The only Review for The common ancestor"
+        a3-book
+            a3-book:pk,title
+            1,"The common ancestor"
+        a3-bookreview
+            a3-bookreview:pk,article_ptr
+            1,1
         """,
     'q': """\
         a4-question

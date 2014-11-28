@@ -126,6 +126,17 @@ SAMPLES_PKS = {
               a1-m_d              1 2
               a1-m_s              3 4 5 6 7 8 9
         """,
+    'a2': """\
+            pks_0 a2-article          1
+                  a2-book             1
+                  a2-bookreview       1
+        """,
+    'a3': """\
+            pks_0 a3-piece            1
+                  a3-article          1
+                  a3-book             1
+                  a3-bookreview       1
+        """,
     'q': """\
         pks_0 a4-question         Q1 Q2 Q3
         """,
